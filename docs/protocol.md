@@ -4,21 +4,21 @@
 
 The Agent Application Protocol (AAP) defines how Applications and Agents communicate over HTTP.
 
-- **Application** acts as the client: owns the UI, accepts user input, provides tools.
-- **Agent** acts as the server: runs the agent loop, manages LLM interaction and history.
-
-Communication uses HTTP with Server-Sent Events (SSE) for streaming responses, modeled after streaming LLM APIs.
+- **Application** acts as the client: owns the UI, accepts user input, provides specific tools.
+- **Agent** acts as the server: runs the agent loop, manages conversation history, provides general tools, handles LLM interaction.
 
 There are two kinds of tools:
 
 - **Application-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests one, the agent emits a `tool_call` event and stops; the client executes it and re-submits with the result.
 - **Server-side tools**: owned and executed by the Agent (e.g. web search, code execution). Declared by the server in `GET /meta`. The client references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
 
+Communication uses HTTP with Server-Sent Events (SSE) for streaming responses, modeled after streaming LLM APIs.
+
 ---
 
 ## Authentication
 
-Both endpoints accept an API key via the `Authorization` header:
+All endpoints accept an API key via the `Authorization` header:
 
 ```
 Authorization: Bearer <api-key>
@@ -33,7 +33,11 @@ Auth is optional on `GET /meta` — servers may choose to expose it publicly for
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/meta` | Get available agents and their tools |
-| `POST` | `/agent` | Invoke the agent; streams SSE response |
+| `PUT` | `/session` | Create a new session |
+| `POST` | `/session/:id` | Send a new turn to an existing session |
+| `GET` | `/session/:id` | Get a session by ID |
+| `GET` | `/sessions` | List sessions |
+| `DELETE` | `/session/:id` | Delete a session |
 
 ---
 
@@ -82,7 +86,13 @@ Returns the protocol version and the list of agents available on this server.
           "type": "text",
           "default": "English"
         }
-      ]
+      ],
+      "capabilities": {
+        "history": {
+          "compacted": true,
+          "full": false
+        }
+      }
     }
   ]
 }
@@ -96,6 +106,9 @@ Returns the protocol version and the list of agents available on this server.
 - `description` — human-readable description of what the agent does.
 - `tools` — server-side tools this agent can invoke. The client references them by name in requests.
 - `options` — configurable options the client may set per request.
+- `capabilities` — declares what the agent supports:
+  - `history.compacted` — if `true`, the server persists a compacted history and will return it in `GET /session/:id`.
+  - `history.full` — if `true`, the server persists the full uncompacted history and will return it in `GET /session/:id`.
 
 **Option fields:**
 
@@ -108,15 +121,9 @@ Returns the protocol version and the list of agents available on this server.
 
 ---
 
-## POST /agent
+## PUT /session
 
-Invoke the agent. The response format depends on the `stream` field in the request body.
-
-### Request Headers
-
-| Header | Description |
-|--------|-------------|
-| `Content-Type` | `application/json` |
+Creates a new session. The server returns a `sessionId` the client uses for subsequent turns.
 
 ### Request Body
 
@@ -125,6 +132,8 @@ Invoke the agent. The response format depends on the `stream` field in the reque
   "agent": "research-agent",
   "stream": "chunk",
   "messages": [
+    { "role": "user", "content": "What's the capital of France?" },
+    { "role": "assistant", "content": "The capital of France is Paris." },
     { "role": "user", "content": "What's the weather in Tokyo?" }
   ],
   "tools": [
@@ -141,7 +150,7 @@ Invoke the agent. The response format depends on the `stream` field in the reque
     }
   ],
   "serverTools": [
-    { "name": "web_search", "trust": false }
+    { "name": "web_search", "trust": true }
   ],
   "options": {
     "model": "claude-opus-4-5",
@@ -154,7 +163,7 @@ Invoke the agent. The response format depends on the `stream` field in the reque
 
 - `agent` — *(required)* agent name to invoke.
 - `stream` — *(optional)* response mode: `"chunk"`, `"message"`, or `"none"` (default). See [Response Modes](#response-modes).
-- `messages` — *(required)* conversation history. See [Message Format](#message-format).
+- `messages` — *(required)* conversation history to seed the session with. The last message must be a `user` message, which becomes the first turn.
 - `tools` — *(optional)* application-side tools with full schema.
 - `serverTools` — *(optional)* server-side tools to enable.
 - `options` — *(optional)* key-value pairs matching the agent's declared `options`.
@@ -164,33 +173,187 @@ Invoke the agent. The response format depends on the `stream` field in the reque
 - `name` — server tool name as declared in `/meta`.
 - `trust` — if `true`, the server may invoke this tool without requesting client permission.
 
-### Response Modes
+### Response
 
-#### `stream: "chunk"`
+Returns the `sessionId` followed by the agent's response stream (or JSON body).
+
+For non-streaming mode:
+
+```json
+{
+  "sessionId": "sess_abc123",
+  "stopReason": "end_turn",
+  "messages": [
+    { "role": "assistant", "content": "The weather in Tokyo is 18°C, partly cloudy." }
+  ]
+}
+```
+
+For SSE modes, `sessionId` is returned in the `session_start` event at the beginning of the stream. See [SSE Events](#sse-events-stream-chunk-and-stream-message).
+
+---
+
+## POST /session/:id
+
+Send a new user turn or tool calling results to an existing session. The server appends the message to its history, runs the agent, and streams or returns the response.
+
+### Request Body
+
+```json
+{
+  "stream": "chunk",
+  "messages": [
+    { "role": "user", "content": "What about Osaka?" }
+  ],
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a location",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ],
+  "serverTools": [
+    { "name": "web_search", "trust": true }
+  ],
+  "options": {
+    "language": "English"
+  }
+}
+```
+
+**Fields:**
+
+- `stream` — *(optional)* response mode. See [Response Modes](#response-modes).
+- `messages` — *(required)* the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
+- `tools` — *(optional)* application-side tools. Overrides tools declared at session creation for this session.
+- `serverTools` — *(optional)* server-side tools. Overrides server tools declared at session creation for this session.
+- `options` — *(optional)* key-value pairs matching the agent's declared `options`. Overrides options declared at session creation for this session.
+
+---
+
+## GET /session/:id
+
+Returns the full session object for the given session ID.
+
+### Response
+
+```json
+{
+  "sessionId": "sess_abc123",
+  "agent": "research-agent",
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a location",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ],
+  "serverTools": [
+    { "name": "web_search", "trust": true }
+  ],
+  "options": {
+    "model": "claude-opus-4-5",
+    "language": "Japanese"
+  },
+  "history": {
+    "compacted": [...],
+    "full": [...]
+  }
+}
+```
+
+**Fields:**
+
+- `sessionId` — the session identifier.
+- `agent` — the agent name this session is running.
+- `tools` — application-side tools declared for this session.
+- `serverTools` — server-side tools declared for this session.
+- `options` — options declared for this session.
+- `history` — *(optional)* conversation history. If the agent declared `capabilities.history.compacted: true` or `capabilities.history.full: true` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
+  - `compacted` — the server's compacted conversation history.
+  - `full` — the full uncompacted conversation history.
+
+---
+
+## GET /sessions
+
+Returns a paginated list of session IDs.
+
+### Query Parameters
+
+- `limit` — *(optional)* maximum number of sessions to return. Server may enforce a maximum.
+- `after` — *(optional)* cursor for pagination. Pass the last `sessionId` from the previous page to get the next page.
+
+### Response
+
+```json
+{
+  "sessions": ["sess_abc123", "sess_def456"],
+  "nextCursor": "sess_def456"
+}
+```
+
+**Fields:**
+
+- `sessions` — array of session IDs.
+- `nextCursor` — *(optional)* pass as `after` to retrieve the next page. Absent when there are no more results.
+
+---
+
+## DELETE /session/:id
+
+Deletes a session and its associated history.
+
+### Response
+
+`204 No Content`
+
+---
+
+## Response Modes
+
+### `stream: "chunk"`
 
 `Content-Type: text/event-stream`. The server streams SSE events as they are produced. Text is sent as incremental `text_delta` chunks; thinking is sent as incremental `thinking_delta` chunks.
 
-#### `stream: "message"`
+### `stream: "message"`
 
-`Content-Type: text/event-stream`. The server streams SSE events, but text is sent as a single complete `text` event per message rather than incremental chunks. Tool call events still arrive as they happen.
+`Content-Type: text/event-stream`. The server streams SSE events, but text is sent as a single complete `text`/`thinking` event per message rather than incremental chunks. Tool call events still arrive as they happen.
 
-#### `stream: "none"` (default)
+### `stream: "none"` (default)
 
 `Content-Type: application/json`. The server returns a single JSON response after the agent finishes. If the agent needs a client-side tool result, it returns a `tool_use` stop reason in the JSON body and the client re-submits with results — same flow as SSE, just without streaming.
 
-### Response Headers
+---
 
-| Header | Description |
-|--------|-------------|
-| `Content-Type` | `text/event-stream` for `chunk`/`message` modes; `application/json` for `none` |
-
-### SSE Events (`stream: "chunk"` and `stream: "message"`)
+## SSE Events (`stream: "chunk"` and `stream: "message"`)
 
 Each event is a JSON object on the `data:` field.
 
+#### `session_start`
+
+Emitted at the very beginning of the stream for `PUT /session`. Contains the `sessionId` the client must store for subsequent turns.
+
+```
+event: session_start
+data: {"sessionId": "sess_abc123"}
+```
+
 #### `message_start`
 
-Emitted at the beginning of the stream.
+Emitted at the beginning of each agent response.
 
 ```
 event: message_start
@@ -281,12 +444,26 @@ data: {"stopReason": "end_turn"}
 | `error` | Server encountered an error mid-stream |
 | `cancelled` | Client closed the connection |
 
-### JSON Response (`stream: "none"`)
+---
+
+## JSON Response (`stream: "none"`)
 
 Normal response:
 
 ```json
 {
+  "stopReason": "end_turn",
+  "messages": [
+    { "role": "assistant", "content": "The weather in Tokyo is 18°C, partly cloudy." }
+  ]
+}
+```
+
+`PUT /session` additionally includes `sessionId`:
+
+```json
+{
+  "sessionId": "sess_abc123",
   "stopReason": "end_turn",
   "messages": [
     { "role": "assistant", "content": "The weather in Tokyo is 18°C, partly cloudy." }
@@ -327,7 +504,15 @@ When an application-side tool is needed, or an untrusted server-side tool requir
 }
 ```
 
-The client appends the tool result (or `tool_permission` for server-side tools) to its history and re-submits.
+The client re-submits via `POST /session/:id` with the tool result or permission:
+
+```json
+{
+  "messages": [
+    { "role": "tool", "toolCallId": "call_001", "content": "Tokyo: 18°C, partly cloudy" }
+  ]
+}
+```
 
 When a trusted server-side tool was called inline, the full exchange is included in the returned messages:
 
@@ -359,6 +544,12 @@ When a trusted server-side tool was called inline, the full exchange is included
 ## Message Format
 
 Messages follow OpenAI-compatible roles.
+
+### System message
+
+```json
+{ "role": "system", "content": "You are a helpful assistant that responds concisely." }
+```
 
 ### User message
 
@@ -393,7 +584,7 @@ Messages follow OpenAI-compatible roles.
 
 Used to respond to a server-side `tool_call`. The agent continues and informs the LLM of the decision.
 
-Once the server has processed the permission request, the client must remove these messages from its history before subsequent requests — they are transient and not part of the persistent conversation history.
+Once the permission request has been processed, it must be removed from history — they are transient and not part of the persistent conversation history.
 
 When `granted: false`, the client may include an optional `reason` string that the agent will relay to the LLM.
 
@@ -412,39 +603,56 @@ When `granted: false`, the client may include an optional `reason` string that t
 ### Application-side tool
 
 ```
-1. Client  →  POST /agent  (messages: [...history])
+1. Client  →  PUT /session or POST /session/:id
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
 3. Server  →  SSE: message_stop  (stopReason: "tool_use")
 4. Client executes tool
-5. Client  →  POST /agent  (messages: [...history, assistant tool_use, tool result])
-6. Server  →  SSE: delta, message_stop  (stopReason: "end_turn")
+5. Client  →  POST /session/:id  (messages: [tool result])
+6. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
 ```
 
 ### Server-side tool (trusted, inline)
 
 ```
-1. Client  →  POST /agent  (messages: [...history])
+1. Client  →  PUT /session or POST /session/:id
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
 3. Server executes tool inline
 4. Server  →  SSE: tool_result  (toolCallId, content)
-5. Server  →  SSE: text_delta / message_stop  (stopReason: "end_turn")
+5. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
 ```
 
 ### Server-side tool (permission required)
 
 ```
-1. Client  →  POST /agent  (messages: [...history])
+1. Client  →  PUT /session or POST /session/:id
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
 3. Server  →  SSE: message_stop  (stopReason: "tool_use")
 4. Client grants or denies permission
-5. Client  →  POST /agent  (messages: [...history, tool_permission])
+5. Client  →  POST /session/:id  (messages: [tool_permission])
 6. Server executes tool (or informs LLM of denial), continues streaming
-7. Server  →  SSE: delta, message_stop  (stopReason: "end_turn")
+7. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
 ```
 
 ### Parallel tool calls
 
-The server may emit multiple `tool_call` events before `message_stop`. The client should handle all of them — execute application-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single request. Trusted server-side tools are handled inline by the server and do not require client action.
+The server may emit multiple `tool_call` events before `message_stop`. The client should handle all of them — execute application-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /session/:id`. Trusted server-side tools are handled inline by the server and do not require client action.
+
+---
+
+## History Management
+
+The server owns the conversation history for each session. The client never re-sends prior messages — it only sends new turns via `POST /session/:id`.
+
+The server must persist at minimum a **compacted history**: a representation of the conversation sufficient for the LLM to continue coherently. The compaction strategy is agent-specific — the server may summarize, truncate, or drop content (e.g. old tool results) as it sees fit. The client is never notified of compaction.
+
+The server may additionally persist the **full uncompacted history** for use cases such as audit trails, history replay, or user-facing conversation display. This is optional and implementation-defined.
+
+Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`:
+
+- `compacted: true` — the server persists compacted history and will return it in `GET /session/:id`.
+- `full: true` — the server persists full history and will return it in `GET /session/:id`.
+
+If `full: false`, the client may choose to maintain its own full history by recording all messages it sends and receives.
 
 ---
 
@@ -458,8 +666,14 @@ sequenceDiagram
     App->>Agent: GET /meta
     Agent-->>App: agents, tools, options
 
-    loop Conversation turn
-        App->>Agent: POST /agent (messages, tools, serverTools)
+    App->>Agent: PUT /session (agent, messages, tools, serverTools)
+    Agent-->>App: SSE: session_start (sessionId)
+    Agent-->>App: SSE: message_start
+    Agent-->>App: SSE: text_delta (repeats)
+    Agent-->>App: SSE: message_stop (stopReason: end_turn)
+
+    loop Subsequent turns
+        App->>Agent: POST /session/:id (messages, tools, serverTools)
         Agent-->>App: SSE: message_start
         Agent-->>App: SSE: text_delta (repeats)
         opt Trusted server tool call
@@ -472,7 +686,7 @@ sequenceDiagram
             Agent-->>App: SSE: tool_call
             Agent-->>App: SSE: message_stop (stopReason: tool_use)
             Note right of App: App executes tool / grants permission
-            App->>Agent: POST /agent (messages with tool result / permission)
+            App->>Agent: POST /session/:id (messages: [tool result / permission])
             Agent-->>App: SSE: message_start
             Agent-->>App: SSE: text_delta (repeats)
         end
@@ -485,6 +699,25 @@ sequenceDiagram
 ## Schema
 
 ```typescript
+// GET /session/:id response
+interface SessionResponse {
+  sessionId: string;
+  agent: string;
+  tools: ToolSpec[];
+  serverTools: ServerToolRef[];
+  options: Record<string, string>;
+  history?: {
+    compacted?: Message[];  // omitted if server chooses not to expose
+    full?: Message[];       // omitted if server does not persist full history
+  };
+}
+
+// GET /sessions response
+interface SessionListResponse {
+  sessions: string[];       // array of sessionIds
+  nextCursor?: string;      // absent when no more results
+}
+
 // GET /meta response
 interface MetaResponse {
   version: number;
@@ -498,20 +731,35 @@ interface AgentInfo {
   description: string;
   tools: ToolSpec[];
   options: AgentOption[];
+  capabilities: {
+    history: {
+      compacted: boolean;               // server persists and exposes compacted history
+      full: boolean;                    // server persists and exposes full history
+    };
+  };
 }
 
 type AgentOption =
   | { name: string; title?: string; description: string; type: "text"; default: string }
   | { name: string; title?: string; description: string; type: "select"; options: string[]; default: string };
 
-// POST /agent request
-interface AgentRequest {
+// PUT /session request
+interface CreateSessionRequest {
   agent: string;
   stream?: "chunk" | "message" | "none"; // default: "none"
-  messages: Message[];
+  messages: Message[];                   // seed history; last message must be a user message
   tools?: ToolSpec[];
   serverTools?: ServerToolRef[];
   options?: Record<string, string>;
+}
+
+// POST /session/:id request
+interface SessionTurnRequest {
+  stream?: "chunk" | "message" | "none"; // default: "none"
+  messages: Message[];                   // new turn(s); typically a single user message
+  tools?: ToolSpec[];                    // overrides session tools for this turn
+  serverTools?: ServerToolRef[];         // overrides session serverTools for this turn
+  options?: Record<string, string>;      // per-turn option overrides
 }
 
 interface ServerToolRef {
@@ -529,6 +777,7 @@ interface ToolSpec {
 
 // Messages
 type Message =
+  | { role: "system"; content: string }
   | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: string | ContentBlock[] }
   | { role: "tool"; toolCallId: string; content: string | ContentBlock[] }
@@ -542,6 +791,7 @@ type ContentBlock =
 
 // SSE event data (stream: "chunk" and stream: "message")
 type SSEEvent =
+  | { event: "session_start"; sessionId: string }    // PUT /session only
   | { event: "message_start" }
   | { event: "text_delta"; delta: string }           // chunk mode only
   | { event: "thinking_delta"; delta: string }       // chunk mode only
@@ -553,6 +803,7 @@ type SSEEvent =
 
 // JSON response body (stream: "none")
 interface AgentResponse {
+  sessionId?: string;   // present in PUT /session response only
   stopReason: StopReason;
   messages: Message[];
 }
