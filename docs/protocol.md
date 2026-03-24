@@ -91,6 +91,11 @@ Returns the protocol version and the list of agents available on this server.
         "history": {
           "compacted": true,
           "full": false
+        },
+        "stream": {
+          "chunk": true,
+          "message": true,
+          "none": true
         }
       }
     }
@@ -107,8 +112,13 @@ Returns the protocol version and the list of agents available on this server.
 - `tools` — server-side tools this agent can invoke. The client references them by name in requests.
 - `options` — configurable options the client may set per request.
 - `capabilities` — declares what the agent supports:
-  - `history.compacted` — if `true`, the server persists a compacted history and will return it in `GET /session/:id`.
-  - `history.full` — if `true`, the server persists the full uncompacted history and will return it in `GET /session/:id`.
+  - `history` — declares what history the agent can return in `GET /session/:id`:
+    - `history.compacted` — if `true`, the server can return compacted history in `GET /session/:id`.
+    - `history.full` — if `true`, the server can return full uncompacted history in `GET /session/:id`.
+  - `stream` — declares which stream modes the agent supports:
+    - `stream.chunk` — if `true`, the agent supports `"chunk"` streaming.
+    - `stream.message` — if `true`, the agent supports `"message"` streaming.
+    - `stream.none` — if `true`, the agent supports non-streaming (`"none"`) responses.
 
 **Option fields:**
 
@@ -735,6 +745,11 @@ interface AgentInfo {
     history: {
       compacted: boolean;               // server persists and exposes compacted history
       full: boolean;                    // server persists and exposes full history
+    };
+    stream: {
+      chunk: boolean;                   // agent supports chunk streaming
+      message: boolean;                 // agent supports message streaming
+      none: boolean;                    // agent supports non-streaming responses
     };
   };
 }
