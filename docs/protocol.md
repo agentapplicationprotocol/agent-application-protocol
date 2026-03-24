@@ -748,16 +748,16 @@ interface AgentInfo {
   options: AgentOption[];
   capabilities?: {
     history?: {
-      compacted: boolean;               // server can return compacted history in GET /session/:id
-      full: boolean;                    // server can return full history in GET /session/:id
+      compacted?: boolean;               // server can return compacted history in GET /session/:id
+      full?: boolean;                    // server can return full history in GET /session/:id
     };
     stream?: {
-      chunk: boolean;                   // agent supports chunk streaming
-      message: boolean;                 // agent supports message streaming
-      none: boolean;                    // agent supports non-streaming responses
+      chunk?: boolean;                   // agent supports chunk streaming
+      message?: boolean;                 // agent supports message streaming
+      none?: boolean;                    // agent supports non-streaming responses
     };
     application?: {
-      tools: boolean;                   // agent accepts application-side tools
+      tools?: boolean;                   // agent accepts application-side tools
     };
   };
 }
