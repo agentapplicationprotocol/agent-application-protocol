@@ -96,6 +96,9 @@ Returns the protocol version and the list of agents available on this server.
           "chunk": true,
           "message": true,
           "none": true
+        },
+        "application": {
+          "tools": true
         }
       }
     }
@@ -119,6 +122,8 @@ Returns the protocol version and the list of agents available on this server.
     - `stream.chunk` — if `true`, the agent supports `"chunk"` streaming.
     - `stream.message` — if `true`, the agent supports `"message"` streaming.
     - `stream.none` — if `true`, the agent supports non-streaming (`"none"`) responses.
+  - `application` — declares what application-provided inputs the agent supports:
+    - `application.tools` — if `true`, the agent accepts application-side tools in requests.
 
 **Option fields:**
 
@@ -750,6 +755,9 @@ interface AgentInfo {
       chunk: boolean;                   // agent supports chunk streaming
       message: boolean;                 // agent supports message streaming
       none: boolean;                    // agent supports non-streaming responses
+    };
+    application?: {
+      tools: boolean;                   // agent accepts application-side tools
     };
   };
 }
