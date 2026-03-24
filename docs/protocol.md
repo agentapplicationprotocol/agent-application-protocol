@@ -109,9 +109,9 @@ Returns the protocol version and the list of agents available on this server.
 - `title` — *(optional)* human-readable display name.
 - `version` — semantic version of the agent.
 - `description` — human-readable description of what the agent does.
-- `tools` — server-side tools this agent can invoke. The client references them by name in requests.
+- `tools` — server-side tools this agent can invoke. The client references them by name in requests. This list may be a subset of the agent's actual tools — agents may choose not to expose all tools.
 - `options` — configurable options the client may set per request.
-- `capabilities` — declares what the agent supports:
+- `capabilities` — *(optional)* declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
   - `history` — declares what history the agent can return in `GET /session/:id`:
     - `history.compacted` — if `true`, the server can return compacted history in `GET /session/:id`.
     - `history.full` — if `true`, the server can return full uncompacted history in `GET /session/:id`.
@@ -741,12 +741,12 @@ interface AgentInfo {
   description: string;
   tools: ToolSpec[];
   options: AgentOption[];
-  capabilities: {
-    history: {
-      compacted: boolean;               // server persists and exposes compacted history
-      full: boolean;                    // server persists and exposes full history
+  capabilities?: {
+    history?: {
+      compacted: boolean;               // server can return compacted history in GET /session/:id
+      full: boolean;                    // server can return full history in GET /session/:id
     };
-    stream: {
+    stream?: {
       chunk: boolean;                   // agent supports chunk streaming
       message: boolean;                 // agent supports message streaming
       none: boolean;                    // agent supports non-streaming responses
