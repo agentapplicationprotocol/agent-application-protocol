@@ -21,10 +21,11 @@ graph LR
 Users interact with the **Application**, not the agent directly. The application owns the UI/UX and provides domain-specific tools; the agent provides the intelligence.
 
 ```mermaid
-graph TB
+graph LR
     User -->|interacts with| App
 
     subgraph App [Application]
+        direction TB
         UI[Purpose-built UI]
         AT[App-side Tools]
     end
@@ -32,6 +33,7 @@ graph TB
     App <-->|AAP| Agent
 
     subgraph Agent [Agent - remote service]
+        direction TB
         Loop[Agent Loop & LLM]
         ST[Server-side Tools]
     end
