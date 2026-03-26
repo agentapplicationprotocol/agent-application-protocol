@@ -22,20 +22,16 @@ Users interact with the **Application**, not the agent directly. The application
 
 ```mermaid
 graph LR
-    User -->|interacts with| App
+    User -->|interacts</br>with| App
 
     subgraph App [Application]
-        direction TB
-        UI[Purpose-built UI]
-        AT[App-side Tools]
+        AppFunc[Purpose-built UI</br></br>App-side Tools]
     end
 
     App <-->|AAP| Agent
 
-    subgraph Agent [Agent - remote service]
-        direction TB
-        Loop[Agent Loop & LLM]
-        ST[Server-side Tools]
+    subgraph Agent [Agent]
+        AgentFunc[Agent Loop & LLM</br></br>Server-side Tools]
     end
 ```
 
