@@ -364,7 +364,7 @@ Each event is a JSON object on the `data:` field.
 
 #### `session_start`
 
-Emitted at the very beginning of the stream for `PUT /session`. Contains the `sessionId` the client must store for subsequent turns.
+The first event in a `PUT /session` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns.
 
 ```
 event: session_start
@@ -373,7 +373,7 @@ data: {"sessionId": "sess_abc123"}
 
 #### `turn_start`
 
-Emitted at the beginning of each agent response.
+Marks the beginning of the agent's response. For `PUT /session`, emitted immediately after `session_start`. For `POST /session/:id`, this is the first event in the stream.
 
 ```
 event: turn_start
@@ -382,7 +382,7 @@ data: {}
 
 #### `text_delta`
 
-*(delta mode only)* An incremental delta of the agent's text response.
+*(delta mode only)* An incremental delta of the agent's text response. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: text_delta
@@ -391,7 +391,7 @@ data: {"delta": "The weather in Tokyo is..."}
 
 #### `thinking_delta`
 
-*(delta mode only)* An incremental delta of the agent's thinking/reasoning.
+*(delta mode only)* An incremental delta of the agent's thinking/reasoning. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: thinking_delta
@@ -400,7 +400,7 @@ data: {"delta": "The user is asking about Tokyo weather, I should..."}
 
 #### `text`
 
-*(message mode only)* The complete agent text response.
+*(message mode only)* The complete agent text response. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: text
@@ -409,7 +409,7 @@ data: {"text": "The weather in Tokyo is 18°C, partly cloudy."}
 
 #### `thinking`
 
-*(message mode only)* The complete agent thinking/reasoning.
+*(message mode only)* The complete agent thinking/reasoning. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: thinking
@@ -418,26 +418,28 @@ data: {"thinking": "The user is asking about Tokyo weather, I should use the wea
 
 #### `tool_call`
 
-The agent wants to invoke a tool. Multiple `tool_call` events may be emitted before `turn_stop` — the client should collect all of them and handle in parallel.
+Only emitted between `turn_start` and `turn_stop`. The agent wants to invoke a tool. Multiple `tool_call` events may be emitted before `turn_stop` — the client should collect all of them and handle in parallel.
 
-For **application-side tools**, the client executes the tool and re-submits with results.
+For **application-side tools**, the client executes the tool and submits the results in a subsequent `POST /session/:id` request.
 
 For **server-side tools** where `trust: true`, the server invokes the tool inline and emits a `tool_result` event with the result — no client round-trip needed. The agent continues streaming without stopping.
 
-For **server-side tools** where `trust: false`, the server stops and the client responds with a permission decision. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
+For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision in a subsequent `POST /session/:id` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
 
 The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
+
+The client must collect all application-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /session/:id` request.
 
 ```
 event: tool_call
 data: {"toolCallId": "call_001", "name": "get_weather", "input": {"location": "Tokyo"}}
 ```
 
-Tool names must be unique across `tools` and `serverTools` in a single request. The client identifies whether a tool call is application-side or server-side by matching the name against its request.
+Tool names must be unique across application tools and agent tools in a single request. The client identifies whether a tool call is application-side or server-side by matching the name against its request.
 
 #### `tool_result`
 
-*(server-side trusted tools only)* Emitted after the server executes a trusted tool inline. The agent continues streaming after this event.
+*(server-side trusted tools only)* Only emitted between `turn_start` and `turn_stop`. Emitted after the server executes a trusted tool inline. The agent continues streaming after this event.
 
 ```
 event: tool_result
@@ -446,7 +448,7 @@ data: {"toolCallId": "call_001", "content": "Tokyo: 18°C, partly cloudy"}
 
 #### `turn_stop`
 
-Emitted at the end of the stream.
+Always the final event in the stream. Marks the end of the agent's response.
 
 ```
 event: turn_stop
@@ -459,10 +461,9 @@ data: {"stopReason": "end_turn"}
 |---|---|
 | `end_turn` | Agent finished normally |
 | `tool_use` | Agent emitted one or more `tool_call` events requiring client action (application-side tool or untrusted server-side tool) |
-| `max_tokens` | Hit token limit |
+| `max_tokens` | Hit token limit — agents should implement their own history compaction strategy to avoid this; if no compaction is in place and the context window overflows, this stop reason is returned |
 | `refusal` | LLM refused to respond (e.g. safety policy) |
 | `error` | Server encountered an error mid-stream |
-| `cancelled` | Client closed the connection |
 
 ---
 
@@ -520,16 +521,6 @@ When an application-side tool is needed, or an untrusted server-side tool requir
         { "type": "tool_use", "toolCallId": "call_001", "name": "get_weather", "input": { "location": "Tokyo" } }
       ]
     }
-  ]
-}
-```
-
-The client re-submits via `POST /session/:id` with the tool result or permission:
-
-```json
-{
-  "messages": [
-    { "role": "tool", "toolCallId": "call_001", "content": "Tokyo: 18°C, partly cloudy" }
   ]
 }
 ```
@@ -594,6 +585,10 @@ Messages follow OpenAI-compatible roles.
 
 ### Tool result message
 
+Used in two cases:
+- **Trusted server-side tool**: the agent executes the tool inline, stores the result in history, and includes it in the returned messages.
+- **Application-side tool**: the client executes the tool and submits the result via `POST /session/:id`.
+
 ```json
 { "role": "tool", "toolCallId": "call_001", "content": "Tokyo: 18°C, partly cloudy" }
 ```
@@ -602,11 +597,9 @@ Messages follow OpenAI-compatible roles.
 
 ### Tool permission message
 
-Used to respond to a server-side `tool_call`. The agent continues and informs the LLM of the decision.
+Used to submit a permission decision for an untrusted server-side tool call via `POST /session/:id`. The agent continues and informs the LLM of the decision. These messages are never stored in session history.
 
-Once the permission request has been processed, it must be removed from history — they are transient and not part of the persistent conversation history.
-
-When `granted: false`, the client may include an optional `reason` string that the agent will relay to the LLM.
+When `granted: true`, the agent executes the tool and stores the tool result in history. When `granted: false`, the agent stores a message in history indicating the tool was denied by the user. The client may include an optional `reason` string that the agent will relay to the LLM.
 
 ```json
 { "role": "tool_permission", "toolCallId": "call_002", "granted": true }
@@ -663,16 +656,11 @@ The server may emit multiple `tool_call` events before `message_stop`. The clien
 
 The server owns the conversation history for each session. The client never re-sends prior messages — it only sends new turns via `POST /session/:id`.
 
-The server must persist at minimum a **compacted history**: a representation of the conversation sufficient for the LLM to continue coherently. The compaction strategy is agent-specific — the server may summarize, truncate, or drop content (e.g. old tool results) as it sees fit. The client is never notified of compaction.
+The server must persist at minimum a **compacted history**: a representation of the conversation sufficient for the LLM to continue coherently. The compaction strategy is agent-specific — the server may summarize, truncate, or drop content (e.g. old tool results) as it sees fit. The client is never notified of compaction. Agents may choose not to expose compacted history in `GET /session/:id` to protect proprietary compaction logic.
 
 The server may additionally persist the **full uncompacted history** for use cases such as audit trails, history replay, or user-facing conversation display. This is optional and implementation-defined.
 
-Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`:
-
-- `compacted` — if present, the server persists compacted history and will return it in `GET /session/:id`.
-- `full` — if present, the server persists full history and will return it in `GET /session/:id`.
-
-If `full: false`, the client may choose to maintain its own full history by recording all messages it sends and receives.
+Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`.
 
 ---
 
@@ -686,14 +674,14 @@ sequenceDiagram
     App->>Agent: GET /meta
     Agent-->>App: agents, tools, options
 
-    App->>Agent: PUT /session (agent, messages, tools, serverTools)
+    App->>Agent: PUT /session (agent, messages, tools)
     Agent-->>App: SSE: session_start (sessionId)
     Agent-->>App: SSE: turn_start
     Agent-->>App: SSE: text_delta (repeats)
     Agent-->>App: SSE: turn_stop (stopReason: end_turn)
 
     loop Subsequent turns
-        App->>Agent: POST /session/:id (messages, tools, serverTools)
+        App->>Agent: POST /session/:id (messages, tools)
         Agent-->>App: SSE: turn_start
         Agent-->>App: SSE: text_delta (repeats)
         opt Trusted server tool call
@@ -726,7 +714,7 @@ interface SessionResponse {
   tools: ToolSpec[];
   history?: {
     compacted?: Message[];  // omitted if server chooses not to expose
-    full?: Message[];       // omitted if server does not persist full history
+    full?: Message[];       // omitted if server chooses not to expose
   };
 }
 
@@ -839,7 +827,7 @@ interface AgentResponse {
   messages: Message[];
 }
 
-type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error" | "cancelled";
+type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
 ```
 
 ---
