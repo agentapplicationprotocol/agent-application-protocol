@@ -4,12 +4,12 @@
 
 The Agent Application Protocol (AAP) defines how Applications and Agents communicate over HTTP.
 
-- **Application** acts as the client: owns the UI, accepts user input, provides specific tools.
-- **Agent** acts as the server: runs the agent loop, manages conversation history, provides general tools, handles LLM interaction.
+- **Application** acts as the client: owns the UI, accepts user input, provides application specific tools.
+- **Agent** acts as the server: runs the agent loop, manages conversation history, provides general tools, handles LLM interaction, and enforces guardrails and safety policies.
 
 There are two kinds of tools:
 
-- **Application-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests one, the agent emits a `tool_call` event and stops; the client executes it and re-submits with the result.
+- **Application-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests, the agent emits `tool_call` events and stops; the client executes them and re-submits with the results.
 - **Server-side tools**: owned and executed by the Agent (e.g. web search, code execution). Declared by the server in `GET /meta`. The client references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
 
 Communication uses HTTP with Server-Sent Events (SSE) for streaming responses, modeled after streaming LLM APIs.
@@ -111,14 +111,14 @@ Returns the protocol version and the list of agents available on this server.
 - `name` — unique identifier for the agent on this server.
 - `title` — *(optional)* human-readable display name.
 - `version` — semantic version of the agent.
-- `description` — human-readable description of what the agent does.
+- `description` — *(optional)* human-readable description of what the agent does.
 - `tools` — server-side tools this agent can invoke. The client references them by name in requests. This list may be a subset of the agent's actual tools — agents may choose not to expose all tools.
 - `options` — configurable options the client may set per request.
 - `capabilities` — *(optional)* declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
   - `history` — declares what history the agent can return in `GET /session/:id`:
     - `history.compacted` — if present, the server can return compacted history in `GET /session/:id`.
     - `history.full` — if present, the server can return full uncompacted history in `GET /session/:id`.
-  - `stream` — declares which stream modes the agent supports:
+  - `stream` — declares which stream modes the agent supports. If omitted, clients should assume only `"none"` is supported.
     - `stream.chunk` — if present, the agent supports `"chunk"` streaming.
     - `stream.message` — if present, the agent supports `"message"` streaming.
     - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
@@ -129,7 +129,7 @@ Returns the protocol version and the list of agents available on this server.
 
 - `name` — identifier used as the key in the request `options` object.
 - `title` — *(optional)* human-readable display name.
-- `description` — explains what this option does.
+- `description` — *(optional)* explains what this option does.
 - `type` — `"text"` for free-form string input, `"select"` for a fixed list of choices, `"secret"` for sensitive values (e.g. API keys) that should be masked in the UI.
 - `options` — *(required for `select`)* list of allowed values.
 - `default` — default value used if the client omits this option.
@@ -743,7 +743,7 @@ interface AgentInfo {
   name: string;
   title?: string;
   version: string;                      // semantic version
-  description: string;
+  description?: string;
   tools: ToolSpec[];
   options: AgentOption[];
   capabilities?: {
@@ -763,9 +763,9 @@ interface AgentInfo {
 }
 
 type AgentOption =
-  | { name: string; title?: string; description: string; type: "text"; default: string }
-  | { name: string; title?: string; description: string; type: "secret"; default: string }
-  | { name: string; title?: string; description: string; type: "select"; options: string[]; default: string };
+  | { name: string; title?: string; description?: string; type: "text"; default: string }
+  | { name: string; title?: string; description?: string; type: "secret"; default: string }
+  | { name: string; title?: string; description?: string; type: "select"; options: string[]; default: string };
 
 // PUT /session request
 interface CreateSessionRequest {
