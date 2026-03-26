@@ -780,7 +780,7 @@ interface CreateSessionRequest {
 // POST /session/:id request
 interface SessionTurnRequest {
   stream?: "chunk" | "message" | "none"; // default: "none"
-  messages: Message[];                   // new turn(s); typically a single user message
+  messages: (Message | ToolPermissionMessage)[];  // new turn(s); typically a single user message
   tools?: ToolSpec[];                    // overrides session tools for this turn
   serverTools?: ServerToolRef[];         // overrides session serverTools for this turn
   options?: Record<string, string>;      // per-turn option overrides
@@ -804,8 +804,9 @@ type Message =
   | { role: "system"; content: string }
   | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: string | ContentBlock[] }
-  | { role: "tool"; toolCallId: string; content: string | ContentBlock[] }
-  | { role: "tool_permission"; toolCallId: string; granted: boolean; reason?: string };
+  | { role: "tool"; toolCallId: string; content: string | ContentBlock[] };
+
+type ToolPermissionMessage = { role: "tool_permission"; toolCallId: string; granted: boolean; reason?: string };
 
 type ContentBlock =
   | { type: "text"; text: string }
