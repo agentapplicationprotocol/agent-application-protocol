@@ -89,16 +89,16 @@ Returns the protocol version and the list of agents available on this server.
       ],
       "capabilities": {
         "history": {
-          "compacted": true,
-          "full": false
+          "compacted": {},
+          "full": {}
         },
         "stream": {
-          "chunk": true,
-          "message": true,
-          "none": true
+          "chunk": {},
+          "message": {},
+          "none": {}
         },
         "application": {
-          "tools": true
+          "tools": {}
         }
       }
     }
@@ -116,14 +116,14 @@ Returns the protocol version and the list of agents available on this server.
 - `options` — configurable options the client may set per request.
 - `capabilities` — *(optional)* declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
   - `history` — declares what history the agent can return in `GET /session/:id`:
-    - `history.compacted` — if `true`, the server can return compacted history in `GET /session/:id`.
-    - `history.full` — if `true`, the server can return full uncompacted history in `GET /session/:id`.
+    - `history.compacted` — if present, the server can return compacted history in `GET /session/:id`.
+    - `history.full` — if present, the server can return full uncompacted history in `GET /session/:id`.
   - `stream` — declares which stream modes the agent supports:
-    - `stream.chunk` — if `true`, the agent supports `"chunk"` streaming.
-    - `stream.message` — if `true`, the agent supports `"message"` streaming.
-    - `stream.none` — if `true`, the agent supports non-streaming (`"none"`) responses.
+    - `stream.chunk` — if present, the agent supports `"chunk"` streaming.
+    - `stream.message` — if present, the agent supports `"message"` streaming.
+    - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
   - `application` — declares what application-provided inputs the agent supports:
-    - `application.tools` — if `true`, the agent accepts application-side tools in requests.
+    - `application.tools` — if present, the agent accepts application-side tools in requests.
 
 **Option fields:**
 
@@ -296,7 +296,7 @@ Returns the full session object for the given session ID.
 - `tools` — application-side tools declared for this session.
 - `serverTools` — server-side tools declared for this session.
 - `options` — options declared for this session.
-- `history` — *(optional)* conversation history. If the agent declared `capabilities.history.compacted: true` or `capabilities.history.full: true` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
+- `history` — *(optional)* conversation history. If the agent declared `capabilities.history.compacted` or `capabilities.history.full` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
   - `compacted` — the server's compacted conversation history.
   - `full` — the full uncompacted conversation history.
 
@@ -664,8 +664,8 @@ The server may additionally persist the **full uncompacted history** for use cas
 
 Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`:
 
-- `compacted: true` — the server persists compacted history and will return it in `GET /session/:id`.
-- `full: true` — the server persists full history and will return it in `GET /session/:id`.
+- `compacted` — if present, the server persists compacted history and will return it in `GET /session/:id`.
+- `full` — if present, the server persists full history and will return it in `GET /session/:id`.
 
 If `full: false`, the client may choose to maintain its own full history by recording all messages it sends and receives.
 
@@ -748,16 +748,16 @@ interface AgentInfo {
   options: AgentOption[];
   capabilities?: {
     history?: {
-      compacted?: boolean;               // server can return compacted history in GET /session/:id
-      full?: boolean;                    // server can return full history in GET /session/:id
+      compacted?: Record<string, never>;         // server can return compacted history in GET /session/:id
+      full?: Record<string, never>;              // server can return full history in GET /session/:id
     };
     stream?: {
-      chunk?: boolean;                   // agent supports chunk streaming
-      message?: boolean;                 // agent supports message streaming
-      none?: boolean;                    // agent supports non-streaming responses
+      chunk?: Record<string, never>;             // agent supports chunk streaming
+      message?: Record<string, never>;           // agent supports message streaming
+      none?: Record<string, never>;              // agent supports non-streaming responses
     };
     application?: {
-      tools?: boolean;                   // agent accepts application-side tools
+      tools?: Record<string, never>;             // agent accepts application-side tools
     };
   };
 }
