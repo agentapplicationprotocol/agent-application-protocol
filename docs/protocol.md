@@ -711,7 +711,7 @@ sequenceDiagram
 interface SessionResponse {
   sessionId: string;
   agent: AgentConfig;
-  tools: ToolSpec[];
+  tools?: ToolSpec[];
   history?: {
     compacted?: Message[];  // omitted if server chooses not to expose
     full?: Message[];       // omitted if server chooses not to expose
@@ -735,8 +735,8 @@ interface AgentInfo {
   title?: string;
   version: string;                      // semantic version
   description?: string;
-  tools: ToolSpec[];
-  options: AgentOption[];
+  tools?: ToolSpec[];
+  options?: AgentOption[];
   capabilities?: {
     history?: {
       compacted?: Record<string, never>;         // server can return compacted history in GET /session/:id
