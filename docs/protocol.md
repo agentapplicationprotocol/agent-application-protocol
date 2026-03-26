@@ -130,7 +130,7 @@ Returns the protocol version and the list of agents available on this server.
 - `name` — identifier used as the key in the request `options` object.
 - `title` — *(optional)* human-readable display name.
 - `description` — explains what this option does.
-- `type` — `"text"` for free-form string input, `"select"` for a fixed list of choices.
+- `type` — `"text"` for free-form string input, `"select"` for a fixed list of choices, `"secret"` for sensitive values (e.g. API keys) that should be masked in the UI.
 - `options` — *(required for `select`)* list of allowed values.
 - `default` — default value used if the client omits this option.
 
@@ -764,6 +764,7 @@ interface AgentInfo {
 
 type AgentOption =
   | { name: string; title?: string; description: string; type: "text"; default: string }
+  | { name: string; title?: string; description: string; type: "secret"; default: string }
   | { name: string; title?: string; description: string; type: "select"; options: string[]; default: string };
 
 // PUT /session request
