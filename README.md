@@ -1,4 +1,6 @@
-# Agent Application Protocol
+![banner](./images/banner.png)
+
+# Agent Application Protocol (∀/A)
 
 A protocol for connecting any application to any agent.
 
