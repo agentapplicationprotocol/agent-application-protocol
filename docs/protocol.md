@@ -144,7 +144,16 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
 
 ```json
 {
-  "agent": "research-agent",
+  "agent": {
+    "name": "research-agent",
+    "tools": [
+      { "name": "web_search", "trust": true }
+    ],
+    "options": {
+      "model": "claude-opus-4-5",
+      "language": "Japanese"
+    }
+  },
   "stream": "chunk",
   "messages": [
     { "role": "user", "content": "What's the capital of France?" },
@@ -163,27 +172,21 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
         "required": ["location"]
       }
     }
-  ],
-  "serverTools": [
-    { "name": "web_search", "trust": true }
-  ],
-  "options": {
-    "model": "claude-opus-4-5",
-    "language": "Japanese"
-  }
+  ]
 }
 ```
 
 **Fields:**
 
-- `agent` — *(required)* agent name to invoke.
+- `agent` — *(required)* agent configuration.
+  - `agent.name` — agent name to invoke.
+  - `agent.tools` — *(optional)* server-side tools to enable.
+  - `agent.options` — *(optional)* key-value pairs matching the agent's declared `options`.
 - `stream` — *(optional)* response mode: `"chunk"`, `"message"`, or `"none"` (default). See [Response Modes](#response-modes).
 - `messages` — *(required)* conversation history to seed the session with. The last message must be a `user` message, which becomes the first turn.
 - `tools` — *(optional)* application-side tools with full schema.
-- `serverTools` — *(optional)* server-side tools to enable.
-- `options` — *(optional)* key-value pairs matching the agent's declared `options`.
 
-**`serverTools` object fields:**
+**`agent.tools` object fields:**
 
 - `name` — server tool name as declared in `/meta`.
 - `trust` — if `true`, the server may invoke this tool without requesting client permission.
@@ -216,6 +219,14 @@ Send a new user turn or tool calling results to an existing session. The server 
 
 ```json
 {
+  "agent": {
+    "tools": [
+      { "name": "web_search", "trust": true }
+    ],
+    "options": {
+      "language": "English"
+    }
+  },
   "stream": "chunk",
   "messages": [
     { "role": "user", "content": "What about Osaka?" }
@@ -232,23 +243,18 @@ Send a new user turn or tool calling results to an existing session. The server 
         "required": ["location"]
       }
     }
-  ],
-  "serverTools": [
-    { "name": "web_search", "trust": true }
-  ],
-  "options": {
-    "language": "English"
-  }
+  ]
 }
 ```
 
 **Fields:**
 
+- `agent` — *(optional)* session-level agent overrides. The server must persist these for the lifetime of the session.
+  - `agent.tools` — *(optional)* server-side tools. Overrides `agent.tools` declared at session creation.
+  - `agent.options` — *(optional)* key-value option overrides. Overrides `agent.options` declared at session creation.
 - `stream` — *(optional)* response mode. See [Response Modes](#response-modes).
 - `messages` — *(required)* the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
-- `tools` — *(optional)* application-side tools. Overrides tools declared at session creation for this session.
-- `serverTools` — *(optional)* server-side tools. Overrides server tools declared at session creation for this session.
-- `options` — *(optional)* key-value pairs matching the agent's declared `options`. Overrides options declared at session creation for this session.
+- `tools` — *(optional)* application-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
 
 ---
 
@@ -261,7 +267,16 @@ Returns the full session object for the given session ID.
 ```json
 {
   "sessionId": "sess_abc123",
-  "agent": "research-agent",
+  "agent": {
+    "name": "research-agent",
+    "tools": [
+      { "name": "web_search", "trust": true }
+    ],
+    "options": {
+      "model": "claude-opus-4-5",
+      "language": "Japanese"
+    }
+  },
   "tools": [
     {
       "name": "get_weather",
@@ -275,13 +290,6 @@ Returns the full session object for the given session ID.
       }
     }
   ],
-  "serverTools": [
-    { "name": "web_search", "trust": true }
-  ],
-  "options": {
-    "model": "claude-opus-4-5",
-    "language": "Japanese"
-  },
   "history": {
     "compacted": [...],
     "full": [...]
@@ -292,10 +300,8 @@ Returns the full session object for the given session ID.
 **Fields:**
 
 - `sessionId` — the session identifier.
-- `agent` — the agent name this session is running.
+- `agent` — the agent configuration for this session.
 - `tools` — application-side tools declared for this session.
-- `serverTools` — server-side tools declared for this session.
-- `options` — options declared for this session.
 - `history` — *(optional)* conversation history. If the agent declared `capabilities.history.compacted` or `capabilities.history.full` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
   - `compacted` — the server's compacted conversation history.
   - `full` — the full uncompacted conversation history.
@@ -717,10 +723,8 @@ sequenceDiagram
 // GET /session/:id response
 interface SessionResponse {
   sessionId: string;
-  agent: string;
+  agent: AgentConfig;
   tools: ToolSpec[];
-  serverTools: ServerToolRef[];
-  options: Record<string, string>;
   history?: {
     compacted?: Message[];  // omitted if server chooses not to expose
     full?: Message[];       // omitted if server does not persist full history
@@ -769,21 +773,24 @@ type AgentOption =
 
 // PUT /session request
 interface CreateSessionRequest {
-  agent: string;
+  agent: AgentConfig;                    // name required at session creation
   stream?: "chunk" | "message" | "none"; // default: "none"
   messages: Message[];                   // seed history; last message must be a user message
   tools?: ToolSpec[];
-  serverTools?: ServerToolRef[];
-  options?: Record<string, string>;
 }
 
 // POST /session/:id request
 interface SessionTurnRequest {
+  agent?: Omit<AgentConfig, "name">;        // session-level overrides; agent name cannot be changed
   stream?: "chunk" | "message" | "none"; // default: "none"
   messages: (Message | ToolPermissionMessage)[];  // new turn(s); typically a single user message
-  tools?: ToolSpec[];                    // overrides session tools for this turn
-  serverTools?: ServerToolRef[];         // overrides session serverTools for this turn
-  options?: Record<string, string>;      // per-turn option overrides
+  tools?: ToolSpec[];                    // overrides session tools
+}
+
+interface AgentConfig {
+  name: string;
+  tools?: ServerToolRef[];
+  options?: Record<string, string>;
 }
 
 interface ServerToolRef {
