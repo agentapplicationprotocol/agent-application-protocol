@@ -314,8 +314,7 @@ Returns a paginated list of session IDs.
 
 ### Query Parameters
 
-- `limit` — *(optional)* maximum number of sessions to return. Server may enforce a maximum.
-- `after` — *(optional)* cursor for pagination. Pass the last `sessionId` from the previous page to get the next page.
+- `after` — *(optional)* pagination cursor. Pass the `nextCursor` value from the previous response to get the next page.
 
 ### Response
 
@@ -329,7 +328,7 @@ Returns a paginated list of session IDs.
 **Fields:**
 
 - `sessions` — array of session IDs.
-- `nextCursor` — *(optional)* pass as `after` to retrieve the next page. Absent when there are no more results.
+- `nextCursor` — *(optional)* opaque cursor string; pass as `after` to retrieve the next page. Absent when there are no more results.
 
 ---
 
