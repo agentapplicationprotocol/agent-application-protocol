@@ -93,7 +93,7 @@ Returns the protocol version and the list of agents available on this server.
           "full": {}
         },
         "stream": {
-          "chunk": {},
+          "delta": {},
           "message": {},
           "none": {}
         },
@@ -119,7 +119,7 @@ Returns the protocol version and the list of agents available on this server.
     - `history.compacted` — if present, the server can return compacted history in `GET /session/:id`.
     - `history.full` — if present, the server can return full uncompacted history in `GET /session/:id`.
   - `stream` — declares which stream modes the agent supports. If omitted, clients should assume only `"none"` is supported.
-    - `stream.chunk` — if present, the agent supports `"chunk"` streaming.
+    - `stream.delta` — if present, the agent supports `"delta"` streaming.
     - `stream.message` — if present, the agent supports `"message"` streaming.
     - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
   - `application` — declares what application-provided inputs the agent supports:
@@ -154,7 +154,7 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
       "language": "Japanese"
     }
   },
-  "stream": "chunk",
+  "stream": "delta",
   "messages": [
     { "role": "user", "content": "What's the capital of France?" },
     { "role": "assistant", "content": "The capital of France is Paris." },
@@ -182,7 +182,7 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
   - `agent.name` — agent name to invoke.
   - `agent.tools` — *(optional)* server-side tools to enable.
   - `agent.options` — *(optional)* key-value pairs matching the agent's declared `options`.
-- `stream` — *(optional)* response mode: `"chunk"`, `"message"`, or `"none"` (default). See [Response Modes](#response-modes).
+- `stream` — *(optional)* response mode: `"delta"`, `"message"`, or `"none"` (default). See [Response Modes](#response-modes).
 - `messages` — *(required)* conversation history to seed the session with. The last message must be a `user` message, which becomes the first turn.
 - `tools` — *(optional)* application-side tools with full schema.
 
@@ -207,7 +207,7 @@ For non-streaming mode:
 }
 ```
 
-For SSE modes, `sessionId` is returned in the `session_start` event at the beginning of the stream. See [SSE Events](#sse-events-stream-chunk-and-stream-message).
+For SSE modes, `sessionId` is returned in the `session_start` event at the beginning of the stream. See [SSE Events](#sse-events-stream-delta-and-stream-message).
 
 ---
 
@@ -227,7 +227,7 @@ Send a new user turn or tool calling results to an existing session. The server 
       "language": "English"
     }
   },
-  "stream": "chunk",
+  "stream": "delta",
   "messages": [
     { "role": "user", "content": "What about Osaka?" }
   ],
@@ -344,13 +344,13 @@ Deletes a session and its associated history.
 
 ## Response Modes
 
-### `stream: "chunk"`
+### `stream: "delta"`
 
-`Content-Type: text/event-stream`. The server streams SSE events as they are produced. Text is sent as incremental `text_delta` chunks; thinking is sent as incremental `thinking_delta` chunks.
+`Content-Type: text/event-stream`. The server streams SSE events as they are produced. Text is sent as incremental `text_delta` events; thinking is sent as incremental `thinking_delta` events.
 
 ### `stream: "message"`
 
-`Content-Type: text/event-stream`. The server streams SSE events, but text is sent as a single complete `text`/`thinking` event per message rather than incremental chunks. Tool call events still arrive as they happen.
+`Content-Type: text/event-stream`. The server streams SSE events, but text is sent as a single complete `text`/`thinking` event per message rather than incremental deltas. Tool call events still arrive as they happen.
 
 ### `stream: "none"` (default)
 
@@ -358,7 +358,7 @@ Deletes a session and its associated history.
 
 ---
 
-## SSE Events (`stream: "chunk"` and `stream: "message"`)
+## SSE Events (`stream: "delta"` and `stream: "message"`)
 
 Each event is a JSON object on the `data:` field.
 
@@ -382,7 +382,7 @@ data: {}
 
 #### `text_delta`
 
-*(chunk mode only)* An incremental chunk of the agent's text response.
+*(delta mode only)* An incremental delta of the agent's text response.
 
 ```
 event: text_delta
@@ -391,7 +391,7 @@ data: {"delta": "The weather in Tokyo is..."}
 
 #### `thinking_delta`
 
-*(chunk mode only)* An incremental chunk of the agent's thinking/reasoning.
+*(delta mode only)* An incremental delta of the agent's thinking/reasoning.
 
 ```
 event: thinking_delta
@@ -755,7 +755,7 @@ interface AgentInfo {
       full?: Record<string, never>;              // server can return full history in GET /session/:id
     };
     stream?: {
-      chunk?: Record<string, never>;             // agent supports chunk streaming
+      delta?: Record<string, never>;             // agent supports delta streaming
       message?: Record<string, never>;           // agent supports message streaming
       none?: Record<string, never>;              // agent supports non-streaming responses
     };
@@ -773,7 +773,7 @@ type AgentOption =
 // PUT /session request
 interface CreateSessionRequest {
   agent: AgentConfig;                    // name required at session creation
-  stream?: "chunk" | "message" | "none"; // default: "none"
+  stream?: "delta" | "message" | "none"; // default: "none"
   messages: Message[];                   // seed history; last message must be a user message
   tools?: ToolSpec[];
 }
@@ -781,7 +781,7 @@ interface CreateSessionRequest {
 // POST /session/:id request
 interface SessionTurnRequest {
   agent?: Omit<AgentConfig, "name">;        // session-level overrides; agent name cannot be changed
-  stream?: "chunk" | "message" | "none"; // default: "none"
+  stream?: "delta" | "message" | "none"; // default: "none"
   messages: (Message | ToolPermissionMessage)[];  // new turn(s); typically a single user message
   tools?: ToolSpec[];                    // overrides session tools
 }
@@ -820,12 +820,12 @@ type ContentBlock =
   | { type: "tool_use"; toolCallId: string; name: string; input: Record<string, unknown> }
   | { type: "image"; mimeType: string; data: string };
 
-// SSE event data (stream: "chunk" and stream: "message")
+// SSE event data (stream: "delta" and stream: "message")
 type SSEEvent =
   | { event: "session_start"; sessionId: string }    // PUT /session only
   | { event: "message_start" }
-  | { event: "text_delta"; delta: string }           // chunk mode only
-  | { event: "thinking_delta"; delta: string }       // chunk mode only
+  | { event: "text_delta"; delta: string }           // delta mode only
+  | { event: "thinking_delta"; delta: string }       // delta mode only
   | { event: "text"; text: string }                  // message mode only
   | { event: "thinking"; thinking: string }          // message mode only
   | { event: "tool_call"; toolCallId: string; name: string; input: Record<string, unknown> }
