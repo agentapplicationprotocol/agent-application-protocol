@@ -371,12 +371,12 @@ event: session_start
 data: {"sessionId": "sess_abc123"}
 ```
 
-#### `message_start`
+#### `turn_start`
 
 Emitted at the beginning of each agent response.
 
 ```
-event: message_start
+event: turn_start
 data: {}
 ```
 
@@ -418,7 +418,7 @@ data: {"thinking": "The user is asking about Tokyo weather, I should use the wea
 
 #### `tool_call`
 
-The agent wants to invoke a tool. Multiple `tool_call` events may be emitted before `message_stop` — the client should collect all of them and handle in parallel.
+The agent wants to invoke a tool. Multiple `tool_call` events may be emitted before `turn_stop` — the client should collect all of them and handle in parallel.
 
 For **application-side tools**, the client executes the tool and re-submits with results.
 
@@ -426,7 +426,7 @@ For **server-side tools** where `trust: true`, the server invokes the tool inlin
 
 For **server-side tools** where `trust: false`, the server stops and the client responds with a permission decision. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
 
-The agent only emits `message_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
+The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
 
 ```
 event: tool_call
@@ -444,12 +444,12 @@ event: tool_result
 data: {"toolCallId": "call_001", "content": "Tokyo: 18°C, partly cloudy"}
 ```
 
-#### `message_stop`
+#### `turn_stop`
 
 Emitted at the end of the stream.
 
 ```
-event: message_stop
+event: turn_stop
 data: {"stopReason": "end_turn"}
 ```
 
@@ -625,10 +625,10 @@ When `granted: false`, the client may include an optional `reason` string that t
 ```
 1. Client  →  PUT /session or POST /session/:id
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
-3. Server  →  SSE: message_stop  (stopReason: "tool_use")
+3. Server  →  SSE: turn_stop  (stopReason: "tool_use")
 4. Client executes tool
 5. Client  →  POST /session/:id  (messages: [tool result])
-6. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
+6. Server  →  SSE: text_delta, turn_stop  (stopReason: "end_turn")
 ```
 
 ### Server-side tool (trusted, inline)
@@ -638,7 +638,7 @@ When `granted: false`, the client may include an optional `reason` string that t
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
 3. Server executes tool inline
 4. Server  →  SSE: tool_result  (toolCallId, content)
-5. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
+5. Server  →  SSE: text_delta, turn_stop  (stopReason: "end_turn")
 ```
 
 ### Server-side tool (permission required)
@@ -646,11 +646,11 @@ When `granted: false`, the client may include an optional `reason` string that t
 ```
 1. Client  →  PUT /session or POST /session/:id
 2. Server  →  SSE: tool_call  (toolCallId, name, input)
-3. Server  →  SSE: message_stop  (stopReason: "tool_use")
+3. Server  →  SSE: turn_stop  (stopReason: "tool_use")
 4. Client grants or denies permission
 5. Client  →  POST /session/:id  (messages: [tool_permission])
 6. Server executes tool (or informs LLM of denial), continues streaming
-7. Server  →  SSE: text_delta, message_stop  (stopReason: "end_turn")
+7. Server  →  SSE: text_delta, turn_stop  (stopReason: "end_turn")
 ```
 
 ### Parallel tool calls
@@ -688,13 +688,13 @@ sequenceDiagram
 
     App->>Agent: PUT /session (agent, messages, tools, serverTools)
     Agent-->>App: SSE: session_start (sessionId)
-    Agent-->>App: SSE: message_start
+    Agent-->>App: SSE: turn_start
     Agent-->>App: SSE: text_delta (repeats)
-    Agent-->>App: SSE: message_stop (stopReason: end_turn)
+    Agent-->>App: SSE: turn_stop (stopReason: end_turn)
 
     loop Subsequent turns
         App->>Agent: POST /session/:id (messages, tools, serverTools)
-        Agent-->>App: SSE: message_start
+        Agent-->>App: SSE: turn_start
         Agent-->>App: SSE: text_delta (repeats)
         opt Trusted server tool call
             Agent-->>App: SSE: tool_call
@@ -704,13 +704,13 @@ sequenceDiagram
         end
         opt Application-side or untrusted server tool call
             Agent-->>App: SSE: tool_call
-            Agent-->>App: SSE: message_stop (stopReason: tool_use)
+            Agent-->>App: SSE: turn_stop (stopReason: tool_use)
             Note right of App: App executes tool / grants permission
             App->>Agent: POST /session/:id (messages: [tool result / permission])
-            Agent-->>App: SSE: message_start
+            Agent-->>App: SSE: turn_start
             Agent-->>App: SSE: text_delta (repeats)
         end
-        Agent-->>App: SSE: message_stop (stopReason: end_turn)
+        Agent-->>App: SSE: turn_stop (stopReason: end_turn)
     end
 ```
 
@@ -823,14 +823,14 @@ type ContentBlock =
 // SSE event data (stream: "delta" and stream: "message")
 type SSEEvent =
   | { event: "session_start"; sessionId: string }    // PUT /session only
-  | { event: "message_start" }
+  | { event: "turn_start" }
   | { event: "text_delta"; delta: string }           // delta mode only
   | { event: "thinking_delta"; delta: string }       // delta mode only
   | { event: "text"; text: string }                  // message mode only
   | { event: "thinking"; thinking: string }          // message mode only
   | { event: "tool_call"; toolCallId: string; name: string; input: Record<string, unknown> }
   | { event: "tool_result"; toolCallId: string; content: string | ContentBlock[] } // trusted server tools only
-  | { event: "message_stop"; stopReason: StopReason };
+  | { event: "turn_stop"; stopReason: StopReason };
 
 // JSON response body (stream: "none")
 interface AgentResponse {
