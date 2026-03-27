@@ -13,8 +13,8 @@ hero:
     alt: Agent Application Protocol
   actions:
     - theme: brand
-      text: Read the Spec
-      link: /protocol
+      text: Get Started
+      link: /overview
     - theme: alt
       text: GitHub
       link: https://github.com/agentapplicationprotocol/agent-application-protocol
