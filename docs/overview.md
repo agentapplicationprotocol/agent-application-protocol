@@ -43,7 +43,7 @@ graph LR
 There are two kinds of tools:
 
 - **Application-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests, the agent emits `tool_call` events and stops; the client executes them and re-submits with the results.
-- **Server-side tools**: owned and executed by the Agent (e.g. web search, code execution). Declared by the server in `GET /meta`. The client references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
+- **Server-side tools**: owned and executed by the Agent (e.g. persistent memory management, web search, code execution). Declared by the server in `GET /meta`. The client references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
 
 Both sides can extend their capabilities via MCP servers — the application wires in domain tools, the agent wires in general-purpose tools like web search or code execution.
 

@@ -5,6 +5,8 @@
 AAP is designed to let agent providers keep their implementation details confidential. Agents may choose not to expose:
 
 - **Agent loop implementation** — the internal reasoning, retry, and orchestration logic is never visible to the client.
+- **Context engineering** — how the agent constructs, orders, or transforms the prompt sent to the LLM is not exposed to the client.
+- **Persistent memory** — the existence, structure, and retrieval strategy of any long-term memory store is opaque to the application.
 - **Compacted history and compaction strategy** — agents may omit `compacted` from `GET /session/:id` responses to protect proprietary summarization or truncation logic.
 - **Guardrail implementation** — safety and policy enforcement logic is opaque to the client; violations surface only as a `refusal` stop reason.
 - **Model routing** — which underlying LLM or model version is used for a given request is not required to be disclosed.
