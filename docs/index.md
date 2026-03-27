@@ -27,7 +27,3 @@ features:
   - title: Clean separation
     details: Applications own the UI and domain tools. Agents own the loop, LLM, and intelligence.
 ---
-
-<style>
-.VPHero .VPImage { width: 600px; max-width: 600px; }
-</style>
