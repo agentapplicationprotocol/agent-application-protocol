@@ -1,0 +1,29 @@
+{
+  "name": "agent-application-protocol",
+  "version": "1.0.0",
+  "description": "![banner](./images/banner.png)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentapplicationprotocol/agent-application-protocol.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/agentapplicationprotocol/agent-application-protocol/issues"
+  },
+  "homepage": "https://github.com/agentapplicationprotocol/agent-application-protocol#readme",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
