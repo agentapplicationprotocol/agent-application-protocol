@@ -30,7 +30,8 @@
 4. Client grants or denies permission
 5. Client  →  POST /session/:id  (messages: [tool_permission])
 6. Server executes tool (or informs LLM of denial), continues streaming
-7. Server  →  SSE: text_delta, turn_stop  (stopReason: "end_turn")
+7. Server  →  SSE: tool_result  (toolCallId, content)
+8. Server  →  SSE: text_delta, turn_stop  (stopReason: "end_turn")
 ```
 
 ## Parallel tool calls
