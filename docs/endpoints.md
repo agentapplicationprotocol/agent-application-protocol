@@ -303,7 +303,7 @@ Send a new user turn or tool calling results to an existing session. The server 
 
 - `agent` — _(optional)_ session-level agent overrides. The server must persist these for the lifetime of the session.
   - `agent.tools` — _(optional)_ server-side tools. Overrides `agent.tools` declared at session creation.
-  - `agent.options` — _(optional)_ key-value option overrides. Overrides `agent.options` declared at session creation.
+  - `agent.options` — _(optional)_ key-value option overrides. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value. The server must persist these for the lifetime of the session.
 - `stream` — _(optional)_ response mode. See [Response Modes](/response).
 - `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
 - `tools` — _(optional)_ application-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.

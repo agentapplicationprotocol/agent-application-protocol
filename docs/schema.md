@@ -219,7 +219,7 @@ interface SessionResponse {
 ```typescript
 // POST /session/:id request
 interface SessionTurnRequest {
-  agent?: Omit<AgentConfig, "name">; // session-level overrides; agent name cannot be changed
+  agent?: Omit<AgentConfig, "name">; // session-level overrides; agent name cannot be changed; agent.options merged by key
   stream?: "delta" | "message" | "none"; // default: "none"
   messages: (UserMessage | ToolMessage | ToolPermissionMessage)[]; // a single user message, or a mixed list of tool results and tool permissions
   tools?: ToolSpec[]; // overrides session tools
