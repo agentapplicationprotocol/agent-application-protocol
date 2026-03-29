@@ -66,7 +66,7 @@ All scenarios could connect to the same general-purpose agent — the applicatio
 - **Enterprise platforms** — any internal app connects to a shared agent, with app-side tools scoped to the relevant domain (HR, legal, finance) without each team building their own agent loop.
 - **Microservice ecosystems** — agents act as intelligent microservices, called by other services rather than users. Any service can delegate reasoning or decision-making to an agent over AAP, keeping the agent loop decoupled from the calling service.
 
-## vs ACP
+## vs. ACP
 
 [Agent Client Protocol (ACP)](https://agentclientprotocol.com) is primarily designed for IDEs connecting to local coding agents. AAP is built for a broader scope: connecting **any** application to **any** remote agent over the network, with multi-tenancy, auth, and streaming as first-class concerns.
 
