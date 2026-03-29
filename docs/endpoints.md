@@ -1,8 +1,10 @@
 # Endpoints
 
+Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All endpoints below are relative to that base URL.
+
 | Method   | Path           | Description                            |
 | -------- | -------------- | -------------------------------------- |
-| `GET`    | `/meta`        | Get available agents and their tools   |
+| `GET`    | `/meta`        | Get available agents info              |
 | `GET`    | `/sessions`    | List sessions                          |
 | `GET`    | `/session/:id` | Get a session by ID                    |
 | `PUT`    | `/session`     | Create a new session                   |
@@ -90,7 +92,7 @@ Returns the protocol version and the list of agents available on this server.
 - `title` — _(optional)_ human-readable display name.
 - `version` — semantic version of the agent.
 - `description` — _(optional)_ human-readable description of what the agent does.
-- `tools` — server-side tools this agent can invoke. The client references them by name in requests. This list may be a subset of the agent's actual tools — agents may choose not to expose all tools.
+- `tools` — server-side tools the agent chooses to expose to the client for configuration (enabling, disabling, or granting trust). Agents may also have unexposed tools that run inline without client involvement, so this is a subset of the agent's actual tools. When a `tool_call` or `tool_result` event references an unknown tool name, clients should handle it gracefully.
 - `options` — configurable options the client may set per request.
 - `capabilities` — _(optional)_ declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
   - `history` — declares what history the agent can return in `GET /session/:id`:
@@ -108,7 +110,7 @@ Returns the protocol version and the list of agents available on this server.
 - `name` — identifier used as the key in the request `options` object.
 - `title` — _(optional)_ human-readable display name.
 - `description` — _(optional)_ explains what this option does.
-- `type` — `"text"` for free-form string input, `"select"` for a fixed list of choices, `"secret"` for sensitive values (e.g. API keys) that should be masked in the UI.
+- `type` — `"text"` for free-form string input, `"select"` for a fixed list of choices, `"secret"` for sensitive values (e.g. API keys) that should be masked in the UI; servers may persist secret values in secure storage (e.g. AWS Secrets Manager).
 - `options` — _(required for `select`)_ list of allowed values.
 - `default` — default value used if the client omits this option.
 
@@ -118,21 +120,21 @@ Returns a paginated list of session IDs.
 
 ### Query Parameters
 
-- `after` — _(optional)_ pagination cursor. Pass the `nextCursor` value from the previous response to get the next page.
+- `after` — _(optional)_ pagination cursor. Pass the `next` value from the previous response to get the next page.
 
 ### Response
 
 ```json
 {
   "sessions": ["sess_abc123", "sess_def456"],
-  "nextCursor": "sess_def456"
+  "next": "dXNlcjoxMjM0NTY3ODk"
 }
 ```
 
 **Fields:**
 
 - `sessions` — array of session IDs.
-- `nextCursor` — _(optional)_ opaque cursor string; pass as `after` to retrieve the next page. Absent when there are no more results.
+- `next` — _(optional)_ opaque cursor string whose format is defined by the server; pass as `after` to retrieve the next page. Absent when there are no more results.
 
 ## GET /session/:id
 
@@ -176,7 +178,7 @@ Returns the full session object for the given session ID.
 **Fields:**
 
 - `sessionId` — the session identifier.
-- `agent` — the agent configuration for this session.
+- `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — application-side tools declared for this session.
 - `history` — _(optional)_ conversation history. If the agent declared `capabilities.history.compacted` or `capabilities.history.full` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
   - `compacted` — the server's compacted conversation history.
@@ -224,8 +226,8 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
 
 - `agent` — _(required)_ agent configuration.
   - `agent.name` — agent name to invoke.
-  - `agent.tools` — _(optional)_ server-side tools to enable.
-  - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`.
+  - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed agent tools are disabled.
+  - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values.
 - `stream` — _(optional)_ response mode: `"delta"`, `"message"`, or `"none"` (default). See [Response Modes](/response).
 - `messages` — _(required)_ conversation history to seed the session with. The last message must be a `user` message, which becomes the first turn.
 - `tools` — _(optional)_ application-side tools with full schema.
@@ -239,7 +241,7 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
 
 Returns the `sessionId` followed by the agent's response stream (or JSON body).
 
-For non-streaming mode:
+For non-streaming mode (see [Response Modes](/response#json-response-stream-none) for full details):
 
 ```json
 {
@@ -255,6 +257,8 @@ For non-streaming mode:
 ```
 
 For SSE modes, `sessionId` is returned in the `session_start` event at the beginning of the stream. See [SSE Events](/response#sse-events-stream-delta-and-stream-message).
+
+For tool call handling, see [Tool Call Flow](/tool-call).
 
 ## POST /session/:id
 
