@@ -79,6 +79,10 @@ Returns the protocol version and the list of agents available on this server.
         },
         "application": {
           "tools": {}
+        },
+        "image": {
+          "http": {},
+          "data": {}
         }
       }
     }
@@ -104,6 +108,9 @@ Returns the protocol version and the list of agents available on this server.
     - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
   - `application` — declares what application-provided inputs the agent supports:
     - `application.tools` — if present, the agent accepts application-side tools in requests.
+  - `image` — declares what image input the agent supports:
+    - `image.http` — if present, the agent accepts `https://` image URLs.
+    - `image.data` — if present, the agent accepts `data:` URI (base64) images.
 
 **Option fields:**
 
@@ -235,7 +242,7 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
 **`agent.tools` object fields:**
 
 - `name` — server tool name as declared in `/meta`.
-- `trust` — if `true`, the server may invoke this tool without requesting client permission.
+- `trust` — _(optional)_ if `true`, the server may invoke this tool without requesting client permission. Defaults to `false`.
 
 ### Response
 
