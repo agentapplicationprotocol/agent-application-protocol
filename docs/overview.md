@@ -60,7 +60,7 @@ This separation enables a marketplace of interoperable agents and applications.
 
 ## Example Scenarios
 
-All scenarios connect to the same general-purpose agent — the application provides domain-specific tools that give the agent context about its environment.
+All scenarios could connect to the same general-purpose agent — the application provides domain-specific tools that give the agent context about its environment.
 
 - **Professional creative tools** — 3D modeling software, game engines, video editors, CAD, or audio workstations expose their scene graph, asset library, or timeline as tools so the agent can manipulate geometry, generate levels, or orchestrate complex edits in natural language.
 - **Enterprise platforms** — any internal app connects to a shared agent, with app-side tools scoped to the relevant domain (HR, legal, finance) without each team building their own agent loop.
