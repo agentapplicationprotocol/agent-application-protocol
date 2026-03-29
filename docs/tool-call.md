@@ -76,6 +76,6 @@ When the client receives `turn_stop` with `stopReason: "tool_use"`:
 If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /session/:id` to retrieve the session history and resume from where it left off:
 
 1. Fetch session history via `GET /session/:id`.
-2. Inspect the last message in history — if it is an assistant message with unresolved tool calls (no matching `tool_result` in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
+2. Inspect the last assistant message in history — if it has unresolved tool calls (no matching `tool` message in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
 3. Apply the same client-side resolving logic: identify application-side tools to execute and server-side tools requiring permission.
 4. Submit results and permissions via `POST /session/:id` to continue.
