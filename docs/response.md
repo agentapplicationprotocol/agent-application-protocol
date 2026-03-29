@@ -4,15 +4,15 @@
 
 ### `stream: "delta"`
 
-`Content-Type: text/event-stream`. The server streams SSE events as they are produced. Text is sent as incremental `text_delta` events; thinking is sent as incremental `thinking_delta` events.
+`Content-Type: text/event-stream`. The server streams SSE events as they are produced. Text is sent as incremental `text_delta` events; thinking is sent as incremental `thinking_delta` events. The agent typically invokes the LLM with streaming enabled to produce deltas in real time.
 
 ### `stream: "message"`
 
-`Content-Type: text/event-stream`. The server streams SSE events, but text is sent as a single complete `text`/`thinking` event per message rather than incremental deltas. Tool call events still arrive as they happen.
+`Content-Type: text/event-stream`. The server streams SSE events, but text is delivered as a complete `text`/`thinking` event per message rather than incremental deltas. A single turn may produce multiple messages, each emitted as its own event. Tool call events still arrive as they happen. The agent may invoke the LLM with streaming disabled and emit each full message once complete.
 
 ### `stream: "none"` (default)
 
-`Content-Type: application/json`. The server returns a single JSON response after the agent finishes. If the agent needs a client-side tool result, it returns a `tool_use` stop reason in the JSON body and the client re-submits with results — same flow as SSE, just without streaming.
+`Content-Type: application/json`. The server returns a single JSON response after the agent finishes.
 
 ## SSE Events (`stream: "delta"` and `stream: "message"`)
 
@@ -20,7 +20,7 @@ Each event is a JSON object on the `data:` field.
 
 ### `session_start`
 
-The first event in a `PUT /session` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns.
+The first event in a `PUT /session` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns. The session ID is an arbitrary string whose format is defined by the server.
 
 ```
 event: session_start
@@ -56,7 +56,7 @@ data: {"delta": "The user is asking about Tokyo weather, I should..."}
 
 ### `text`
 
-_(message mode only)_ The complete agent text response. Only emitted between `turn_start` and `turn_stop`.
+_(message mode only)_ The complete text of a single agent message. A turn may produce multiple messages, each emitted as a separate `text` event. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: text
@@ -65,7 +65,7 @@ data: {"text": "The weather in Tokyo is 18°C, partly cloudy."}
 
 ### `thinking`
 
-_(message mode only)_ The complete agent thinking/reasoning. Only emitted between `turn_start` and `turn_stop`.
+_(message mode only)_ The complete thinking/reasoning of a single agent message. A turn may produce multiple messages, each emitted as a separate `thinking` event. Only emitted between `turn_start` and `turn_stop`.
 
 ```
 event: thinking
@@ -76,26 +76,26 @@ data: {"thinking": "The user is asking about Tokyo weather, I should use the wea
 
 Only emitted between `turn_start` and `turn_stop`. The agent wants to invoke a tool. Multiple `tool_call` events may be emitted before `turn_stop` — the client should collect all of them and handle in parallel.
 
-For **application-side tools**, the client executes the tool and submits the results in a subsequent `POST /session/:id` request.
-
-For **server-side tools** where `trust: true`, the server invokes the tool inline and emits a `tool_result` event with the result — no client round-trip needed. The agent continues streaming without stopping.
-
-For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision in a subsequent `POST /session/:id` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
-
-The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
-
-The client must collect all application-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /session/:id` request.
-
 ```
 event: tool_call
 data: {"toolCallId": "call_001", "name": "get_weather", "input": {"location": "Tokyo"}}
 ```
 
+For **application-side tools**, the client executes the tool and submits the results in a subsequent `POST /session/:id` request.
+
+For **server-side tools** where `trust: true`, the server invokes the tool inline and emits a `tool_result` event with the result — no client round-trip needed. The agent continues streaming without stopping.
+
+For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision for each untrusted tool call in a subsequent `POST /session/:id` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
+
+The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
+
+The client must collect all application-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /session/:id` request.
+
 Tool names must be unique across application tools and agent tools in a single request. The client identifies whether a tool call is application-side or server-side by matching the name against its request.
 
 ### `tool_result`
 
-_(server-side trusted tools only)_ Only emitted between `turn_start` and `turn_stop`. Emitted after the server executes a trusted tool inline. The agent continues streaming after this event.
+_(server-side tools only)_ Only emitted between `turn_start` and `turn_stop`. Emitted after the server executes a server-side tool — either inline for trusted tools, or after the client grants permission for untrusted tools. The agent continues streaming after this event.
 
 ```
 event: tool_result
@@ -122,6 +122,8 @@ data: {"stopReason": "end_turn"}
 | `error`      | Server encountered an error mid-stream                                                                                                                                                     |
 
 ## JSON Response (`stream: "none"`)
+
+See [Schema](/schema) for the full response schema. Here are examples:
 
 Normal response:
 
@@ -270,9 +272,7 @@ Messages follow OpenAI-compatible roles.
 
 ### Tool result message
 
-Used in two cases:
-
-- **Trusted server-side tool**: the agent executes the tool inline, stores the result in history, and includes it in the returned messages.
+- **Server-side tool**: the agent executes the tool, stores the result in history, and includes it in the returned messages.
 - **Application-side tool**: the client executes the tool and submits the result via `POST /session/:id`.
 
 ```json
@@ -312,32 +312,32 @@ sequenceDiagram
     participant Agent as Agent (Server)
 
     App->>Agent: GET /meta
-    Agent-->>App: agents, tools, options
+    Agent-->>App: agents
 
-    App->>Agent: PUT /session (agent, messages, tools)
-    Agent-->>App: SSE: session_start (sessionId)
-    Agent-->>App: SSE: turn_start
-    Agent-->>App: SSE: text_delta (repeats)
-    Agent-->>App: SSE: turn_stop (stopReason: end_turn)
-
-    loop Subsequent turns
-        App->>Agent: POST /session/:id (messages, tools)
+    loop Each turn (user message or tool result/permission)
+        App->>Agent: PUT /session or POST /session/:id
+        Agent-->>App: SSE: session_start (sessionId, PUT only)
         Agent-->>App: SSE: turn_start
-        Agent-->>App: SSE: text_delta (repeats)
-        opt Trusted server tool call
-            Agent-->>App: SSE: tool_call
-            Note right of Agent: Server executes tool inline
-            Agent-->>App: SSE: tool_result
+        loop Per message in turn
+            opt Thinking
+                Agent-->>App: SSE: thinking_delta (repeats)
+            end
             Agent-->>App: SSE: text_delta (repeats)
+            opt Server-side tool call (trusted)
+                Agent-->>App: SSE: tool_call
+                Note right of Agent: Server executes tool inline
+                Agent-->>App: SSE: tool_result
+            end
         end
         opt Application-side or untrusted server tool call
             Agent-->>App: SSE: tool_call
+        end
+        alt stopReason: tool_use
             Agent-->>App: SSE: turn_stop (stopReason: tool_use)
             Note right of App: App executes tool / grants permission
-            App->>Agent: POST /session/:id (messages: [tool result / permission])
-            Agent-->>App: SSE: turn_start
-            Agent-->>App: SSE: text_delta (repeats)
+            Note right of App: Submitted as next turn
+        else stopReason: end_turn
+            Agent-->>App: SSE: turn_stop (stopReason: end_turn)
         end
-        Agent-->>App: SSE: turn_stop (stopReason: end_turn)
     end
 ```
