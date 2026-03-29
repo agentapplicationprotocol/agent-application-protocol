@@ -5,6 +5,7 @@ export default withMermaid(
   defineConfig({
     title: "Agent Application Protocol",
     description: "A protocol for connecting any application to any agent.",
+    cleanUrls: true,
     head: [["link", { rel: "icon", href: "/favicon.png" }]],
     themeConfig: {
       nav: [
