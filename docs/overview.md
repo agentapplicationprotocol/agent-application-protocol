@@ -68,13 +68,16 @@ All scenarios could connect to the same general-purpose agent — the applicatio
 
 ## vs. ACP
 
-[Agent Client Protocol (ACP)](https://agentclientprotocol.com) is primarily designed for IDEs connecting to local coding agents. AAP is built for a broader scope: connecting **any** application to **any** remote agent over the network, with multi-tenancy, auth, and streaming as first-class concerns.
+[Agent Client Protocol (ACP)](https://agentclientprotocol.com) is primarily designed for IDEs connecting to local coding agents. AAP targets any application connecting to any remote agent.
 
-|            | AAP                         | ACP                |
-| ---------- | --------------------------- | ------------------ |
-| Transport  | HTTP + SSE (remote-first)   | Local / in-process |
-| Target     | Any application ↔ any agent | IDE ↔ coding agent |
-| Deployment | Agent as a remote service   | Agent runs locally |
+|            | AAP                                    | ACP                                     |
+| ---------- | -------------------------------------- | --------------------------------------- |
+| Target     | Any application ↔ any agent            | IDE ↔ coding agent                      |
+| Transport  | HTTP + SSE, no bidirectional channel   | JSON-RPC, requires a long-lived session |
+| Tools      | Application tools + agent tools        | Agent tools only                        |
+| Deployment | Remote-first, SaaS, agent as a service | Local-first                             |
+
+ACP's streamable HTTP transport is still a draft proposal. AAP's unidirectional SSE makes servers stateless and horizontally scalable — session history can be stored externally with no persistent server connection required.
 
 ## Credits
 
