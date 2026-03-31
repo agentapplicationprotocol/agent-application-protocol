@@ -12,4 +12,3 @@ Learn more at https://agentapplicationprotocol.com.
 
 - [TypeScript SDK](https://github.com/agentapplicationprotocol/typescript-sdk)
 - [Web playground](https://agentapplicationprotocol.github.io/playground/)
-- [Example agents](https://github.com/agentapplicationprotocol/agents)
