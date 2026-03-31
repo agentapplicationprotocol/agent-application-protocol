@@ -18,10 +18,6 @@ export default withMermaid(
           text: "Playground",
           link: "https://agentapplicationprotocol.github.io/playground/",
         },
-        {
-          text: "Example",
-          link: "https://github.com/agentapplicationprotocol/agents",
-        },
       ],
       sidebar: [
         { text: "Overview", link: "/overview" },
