@@ -2,14 +2,15 @@
 
 Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All endpoints below are relative to that base URL.
 
-| Method   | Path           | Description                            |
-| -------- | -------------- | -------------------------------------- |
-| `GET`    | `/meta`        | Get available agents info              |
-| `GET`    | `/sessions`    | List sessions                          |
-| `GET`    | `/session/:id` | Get a session by ID                    |
-| `PUT`    | `/session`     | Create a new session                   |
-| `POST`   | `/session/:id` | Send a new turn to an existing session |
-| `DELETE` | `/session/:id` | Delete a session                       |
+| Method   | Path                   | Description                            |
+| -------- | ---------------------- | -------------------------------------- |
+| `GET`    | `/meta`                | Get available agents info              |
+| `GET`    | `/sessions`            | List sessions                          |
+| `GET`    | `/session/:id`         | Get a session by ID                    |
+| `GET`    | `/session/:id/history` | Get session history                    |
+| `PUT`    | `/session`             | Create a new session                   |
+| `POST`   | `/session/:id`         | Send a new turn to an existing session |
+| `DELETE` | `/session/:id`         | Delete a session                       |
 
 ## Authentication
 
@@ -29,7 +30,7 @@ Returns the protocol version and the list of agents available on this server.
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "agents": [
     {
       "name": "research-agent",
@@ -123,7 +124,7 @@ Returns the protocol version and the list of agents available on this server.
 
 ## GET /sessions
 
-Returns a paginated list of session IDs.
+Returns a paginated list of sessions.
 
 ### Query Parameters
 
@@ -133,23 +134,44 @@ Returns a paginated list of session IDs.
 
 ```json
 {
-  "sessions": ["sess_abc123", "sess_def456"],
+  "sessions": [
+    {
+      "sessionId": "sess_abc123",
+      "agent": {
+        "name": "research-agent",
+        "tools": [{ "name": "web_search", "trust": true }],
+        "options": {
+          "model": "claude-opus-4-5",
+          "language": "Japanese"
+        }
+      },
+      "tools": [
+        {
+          "name": "get_weather",
+          "description": "Get current weather for a location",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "location": { "type": "string" }
+            },
+            "required": ["location"]
+          }
+        }
+      ]
+    }
+  ],
   "next": "dXNlcjoxMjM0NTY3ODk"
 }
 ```
 
 **Fields:**
 
-- `sessions` — array of session IDs.
+- `sessions` — array of session objects. Each object has the same shape as `GET /session/:id`.
 - `next` — _(optional)_ opaque cursor string whose format is defined by the server; pass as `after` to retrieve the next page. Absent when there are no more results.
 
 ## GET /session/:id
 
-Returns the full session object for the given session ID.
-
-### Query Parameters
-
-- `history` — _(optional)_ which history to include in the response. Accepted values: `compacted`, `full`. If omitted, no history is returned.
+Returns the session object for the given session ID.
 
 ### Response
 
@@ -158,9 +180,7 @@ Returns the full session object for the given session ID.
   "sessionId": "sess_abc123",
   "agent": {
     "name": "research-agent",
-    "tools": [
-      { "name": "web_search", "trust": true }
-    ],
+    "tools": [{ "name": "web_search", "trust": true }],
     "options": {
       "model": "claude-opus-4-5",
       "language": "Japanese"
@@ -178,10 +198,7 @@ Returns the full session object for the given session ID.
         "required": ["location"]
       }
     }
-  ],
-  "history": {
-    "compacted": [...]
-  }
+  ]
 }
 ```
 
@@ -190,7 +207,28 @@ Returns the full session object for the given session ID.
 - `sessionId` — the session identifier.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — application-side tools declared for this session.
-- `history` — _(optional)_ conversation history. Present only when the `history` query parameter is provided and the agent declared the corresponding capability (`capabilities.history.compacted` or `capabilities.history.full`) in `GET /meta`. Contains either `history.compacted` or `history.full` depending on the requested type.
+
+## GET /session/:id/history
+
+Returns the conversation history for the given session. Only available if the agent declared history capabilities in `GET /meta`.
+
+### Query Parameters
+
+- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
+
+### Response
+
+```json
+{
+  "history": {
+    "compacted": [...]
+  }
+}
+```
+
+**Fields:**
+
+- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
 
 ## PUT /session
 

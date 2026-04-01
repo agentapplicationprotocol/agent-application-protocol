@@ -229,13 +229,27 @@ interface MetaResponse {
 }
 ```
 
+## SessionHistoryResponse
+
+```typescript
+/** Response body for `GET /session/:id/history`. */
+interface SessionHistoryResponse {
+  history: {
+    /** Present when `?type=compacted` */
+    compacted?: HistoryMessage[];
+    /** Present when `?type=full` */
+    full?: HistoryMessage[];
+  };
+}
+```
+
 ## SessionListResponse
 
 ```typescript
 /** Response body for `GET /sessions`. */
 interface SessionListResponse {
-  /** Array of session IDs. */
-  sessions: string[];
+  /** Array of session objects. Each object has the same shape as `SessionResponse`. */
+  sessions: SessionResponse[];
   /** Pagination cursor; absent when there are no more results. Pass as `after` to get the next page. */
   next?: string;
 }
@@ -244,19 +258,13 @@ interface SessionListResponse {
 ## SessionResponse
 
 ```typescript
-/** Response body for `GET /session/:id`. */
+/** Response body for `GET /session/:id` and items in `GET /sessions`. */
 interface SessionResponse {
   sessionId: string;
   /** Secret option values in `agent.options` are redacted (e.g. `"***"`). */
   agent: AgentConfig;
   /** Application-side tools declared for this session. */
   tools?: ToolSpec[];
-  history?: {
-    /** Omitted if the server chooses not to expose. Present when `?history=compacted` */
-    compacted?: HistoryMessage[];
-    /** Omitted if the server chooses not to expose. Present when `?history=full` */
-    full?: HistoryMessage[];
-  };
 }
 ```
 
