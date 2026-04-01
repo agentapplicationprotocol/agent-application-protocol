@@ -147,6 +147,10 @@ Returns a paginated list of session IDs.
 
 Returns the full session object for the given session ID.
 
+### Query Parameters
+
+- `history` — _(optional)_ which history to include in the response. Accepted values: `compacted`, `full`. If omitted, no history is returned.
+
 ### Response
 
 ```json
@@ -176,8 +180,7 @@ Returns the full session object for the given session ID.
     }
   ],
   "history": {
-    "compacted": [...],
-    "full": [...]
+    "compacted": [...]
   }
 }
 ```
@@ -187,9 +190,7 @@ Returns the full session object for the given session ID.
 - `sessionId` — the session identifier.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — application-side tools declared for this session.
-- `history` — _(optional)_ conversation history. If the agent declared `capabilities.history.compacted` or `capabilities.history.full` in `GET /meta`, the server **must** return the corresponding field(s). Otherwise the server may omit them.
-  - `compacted` — the server's compacted conversation history.
-  - `full` — the full uncompacted conversation history.
+- `history` — _(optional)_ conversation history. Present only when the `history` query parameter is provided and the agent declared the corresponding capability (`capabilities.history.compacted` or `capabilities.history.full`) in `GET /meta`. Contains either `history.compacted` or `history.full` depending on the requested type.
 
 ## PUT /session
 

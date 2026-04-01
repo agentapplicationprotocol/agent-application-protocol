@@ -203,13 +203,14 @@ interface SessionListResponse {
 
 ```typescript
 // GET /session/:id response
+// history is only present when the ?history=compacted|full query param is provided
 interface SessionResponse {
   sessionId: string;
   agent: AgentConfig; // secret option values in agent.options must be redacted (e.g. "***")
   tools?: ToolSpec[];
   history?: {
-    compacted?: HistoryMessage[]; // omitted if server chooses not to expose
-    full?: HistoryMessage[]; // omitted if server chooses not to expose
+    compacted?: HistoryMessage[]; // present when ?history=compacted
+    full?: HistoryMessage[];      // present when ?history=full
   };
 }
 ```
