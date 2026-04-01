@@ -3,9 +3,21 @@
 ## AgentConfig
 
 ```typescript
-interface AgentConfig {
+/** References a server-side tool to enable for a session. */
+interface ServerToolRef {
+  /** Server tool name as declared in `/meta`. */
   name: string;
+  /** If `true`, the server may invoke this tool without requesting client permission. Defaults to `false`. */
+  trust?: boolean;
+}
+
+/** Agent configuration supplied with a request. */
+interface AgentConfig {
+  /** Agent name to invoke. */
+  name: string;
+  /** Server-side tools to enable. If omitted, all exposed agent tools are disabled. */
   tools?: ServerToolRef[];
+  /** Key-value pairs matching the agent's declared options. */
   options?: Record<string, string>;
 }
 ```
@@ -13,29 +25,48 @@ interface AgentConfig {
 ## AgentInfo
 
 ```typescript
+/** Describes an agent available on the server, as returned by `GET /meta`. */
 interface AgentInfo {
+  /** Unique identifier for the agent on this server. */
   name: string;
+  /** Human-readable display name. */
   title?: string;
-  version: string; // semantic version
+  /** Semantic version of the agent. */
+  version: string;
   description?: string;
+  /** Server-side tools the agent exposes to the client for configuration. */
   tools?: ToolSpec[];
+  /** Configurable options the client may set per request. */
   options?: AgentOption[];
+  /** Declares what the agent supports. Missing fields should be treated as unsupported. */
   capabilities?: {
+    /** Declares what history the agent can return in `GET /session/:id`. */
     history?: {
-      compacted?: Record<string, never>; // server can return compacted history in GET /session/:id
-      full?: Record<string, never>; // server can return full history in GET /session/:id
+      /** Server can return compacted history. */
+      compacted?: Record<string, never>;
+      /** Server can return full uncompacted history. */
+      full?: Record<string, never>;
     };
+    /** Declares which stream modes the agent supports. */
     stream?: {
-      delta?: Record<string, never>; // agent supports delta streaming
-      message?: Record<string, never>; // agent supports message streaming
-      none?: Record<string, never>; // agent supports non-streaming responses
+      /** Agent supports `"delta"` streaming. */
+      delta?: Record<string, never>;
+      /** Agent supports `"message"` streaming. */
+      message?: Record<string, never>;
+      /** Agent supports non-streaming (`"none"`) responses. */
+      none?: Record<string, never>;
     };
+    /** Declares what application-provided inputs the agent supports. */
     application?: {
-      tools?: Record<string, never>; // agent accepts application-side tools
+      /** Agent accepts application-side tools in requests. */
+      tools?: Record<string, never>;
     };
+    /** Declares what image input the agent supports. */
     image?: {
-      http?: Record<string, never>; // agent accepts https:// image URLs
-      data?: Record<string, never>; // agent accepts data: URI (base64) images
+      /** Agent accepts `https://` image URLs. */
+      http?: Record<string, never>;
+      /** Agent accepts `data:` URI (base64) images. */
+      data?: Record<string, never>;
     };
   };
 }
@@ -44,37 +75,40 @@ interface AgentInfo {
 ## AgentOption
 
 ```typescript
-type AgentOption =
-  | {
-      type: "text";
-      name: string;
-      title?: string;
-      description?: string;
-      default: string;
-    }
-  | {
-      type: "secret";
-      name: string;
-      title?: string;
-      description?: string;
-      default: string;
-    }
-  | {
-      type: "select";
-      name: string;
-      title?: string;
-      description?: string;
-      options: string[];
-      default: string;
-    };
+interface TextAgentOption {
+  type: "text";
+  name: string;
+  title?: string;
+  description?: string;
+  default: string;
+}
+
+interface SecretAgentOption {
+  type: "secret";
+  name: string;
+  title?: string;
+  description?: string;
+  default: string;
+}
+
+interface SelectAgentOption {
+  type: "select";
+  name: string;
+  title?: string;
+  description?: string;
+  options: string[];
+  default: string;
+}
+
+/** A configurable option the client may set per request. */
+type AgentOption = TextAgentOption | SecretAgentOption | SelectAgentOption;
 ```
 
 ## AgentResponse
 
 ```typescript
-// JSON response body (stream: "none")
+/** JSON response body for non-streaming (`stream: "none"`) requests. */
 interface AgentResponse {
-  sessionId?: string; // present in PUT /session response only
   stopReason: StopReason;
   messages: HistoryMessage[];
 }
@@ -83,64 +117,103 @@ interface AgentResponse {
 ## ContentBlock
 
 ```typescript
+interface TextContentBlock {
+  type: "text";
+  text: string;
+}
+
+interface ThinkingContentBlock {
+  type: "thinking";
+  thinking: string;
+}
+
+interface ToolUseContentBlock {
+  type: "tool_use";
+  toolCallId: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface ImageContentBlock {
+  type: "image";
+  /** Supports `https://` URLs and `data:` URIs (base64). */
+  url: string;
+}
+
+/** A single block of content within a message. */
 type ContentBlock =
-  | { type: "text"; text: string }
-  | { type: "thinking"; thinking: string }
-  | {
-      type: "tool_use";
-      toolCallId: string;
-      name: string;
-      input: Record<string, unknown>;
-    }
-  | { type: "image"; url: string }; // supports https:// and data: URIs
+  | TextContentBlock
+  | ThinkingContentBlock
+  | ToolUseContentBlock
+  | ImageContentBlock;
 ```
 
 ## CreateSessionRequest
 
 ```typescript
-// PUT /session request
+/** Request body for `PUT /session`. */
 interface CreateSessionRequest {
-  agent: AgentConfig; // name required at session creation
-  stream?: "delta" | "message" | "none"; // default: "none"
-  messages: HistoryMessage[]; // seed history; last message must be a user message
+  /** Agent configuration. `name` is required at session creation. */
+  agent: AgentConfig;
+  /** Response mode. Defaults to `"none"`. */
+  stream?: StreamMode;
+  /** Seed history. The last message must be a `user` message. */
+  messages: HistoryMessage[];
+  /** Application-side tools with full schema. */
   tools?: ToolSpec[];
+}
+```
+
+## CreateSessionResponse
+
+```typescript
+interface CreateSessionResponse extends AgentResponse {
+  sessionId: string;
 }
 ```
 
 ## Message
 
 ```typescript
+/** A system-role message providing instructions to the agent. */
 interface SystemMessage {
   role: "system";
   content: string;
 }
 
+/** A user-role message. */
 interface UserMessage {
   role: "user";
   content: string | ContentBlock[];
 }
 
+/** An assistant-role message. */
 interface AssistantMessage {
   role: "assistant";
   content: string | ContentBlock[];
 }
 
+/** A tool result message returned by the application after a `tool_use` block. */
 interface ToolMessage {
   role: "tool";
   toolCallId: string;
   content: string | ContentBlock[];
 }
 
+/** A message that can appear in conversation history. */
 type HistoryMessage =
   | SystemMessage
   | UserMessage
   | AssistantMessage
   | ToolMessage;
 
+/** Grants or denies permission for the server to invoke a tool on the client's behalf. */
 interface ToolPermissionMessage {
   role: "tool_permission";
   toolCallId: string;
+  /** Whether the client grants permission for the tool call. */
   granted: boolean;
+  /** Optional explanation, especially useful when `granted` is `false`. */
   reason?: string;
 }
 ```
@@ -148,69 +221,41 @@ interface ToolPermissionMessage {
 ## MetaResponse
 
 ```typescript
-// GET /meta response
+/** Response body for `GET /meta`. */
 interface MetaResponse {
+  /** AAP protocol version. */
   version: number;
   agents: AgentInfo[];
-}
-```
-
-## SSEEvent
-
-```typescript
-// SSE event data (stream: "delta" and stream: "message")
-type SSEEvent =
-  | { event: "session_start"; sessionId: string } // PUT /session only
-  | { event: "turn_start" }
-  | { event: "text_delta"; delta: string } // delta mode only
-  | { event: "thinking_delta"; delta: string } // delta mode only
-  | { event: "text"; text: string } // message mode only
-  | { event: "thinking"; thinking: string } // message mode only
-  | {
-      event: "tool_call";
-      toolCallId: string;
-      name: string;
-      input: Record<string, unknown>;
-    }
-  | {
-      event: "tool_result";
-      toolCallId: string;
-      content: string | ContentBlock[];
-    } // server-side tools only
-  | { event: "turn_stop"; stopReason: StopReason };
-```
-
-## ServerToolRef
-
-```typescript
-interface ServerToolRef {
-  name: string;
-  trust?: boolean; // default: false
 }
 ```
 
 ## SessionListResponse
 
 ```typescript
-// GET /sessions response
+/** Response body for `GET /sessions`. */
 interface SessionListResponse {
-  sessions: string[]; // array of sessionIds
-  next?: string; // absent when no more results
+  /** Array of session IDs. */
+  sessions: string[];
+  /** Pagination cursor; absent when there are no more results. Pass as `after` to get the next page. */
+  next?: string;
 }
 ```
 
 ## SessionResponse
 
 ```typescript
-// GET /session/:id response
-// history is only present when the ?history=compacted|full query param is provided
+/** Response body for `GET /session/:id`. */
 interface SessionResponse {
   sessionId: string;
-  agent: AgentConfig; // secret option values in agent.options must be redacted (e.g. "***")
+  /** Secret option values in `agent.options` are redacted (e.g. `"***"`). */
+  agent: AgentConfig;
+  /** Application-side tools declared for this session. */
   tools?: ToolSpec[];
   history?: {
-    compacted?: HistoryMessage[]; // present when ?history=compacted
-    full?: HistoryMessage[];      // present when ?history=full
+    /** Omitted if the server chooses not to expose. Present when `?history=compacted` */
+    compacted?: HistoryMessage[];
+    /** Omitted if the server chooses not to expose. Present when `?history=full` */
+    full?: HistoryMessage[];
   };
 }
 ```
@@ -218,13 +263,102 @@ interface SessionResponse {
 ## SessionTurnRequest
 
 ```typescript
-// POST /session/:id request
+/** Request body for `POST /session/:id`. */
 interface SessionTurnRequest {
-  agent?: Omit<AgentConfig, "name">; // session-level overrides; agent name cannot be changed; agent.options merged by key
-  stream?: "delta" | "message" | "none"; // default: "none"
-  messages: (UserMessage | ToolMessage | ToolPermissionMessage)[]; // a single user message, or a mixed list of tool results and tool permissions
-  tools?: ToolSpec[]; // overrides session tools
+  /** Session-level agent overrides. Agent name cannot be changed. Options merged by key. */
+  agent?: Omit<AgentConfig, "name">;
+  /** Response mode. Defaults to `"none"`. */
+  stream?: StreamMode;
+  /** A single user message, or a mixed list of tool results and tool permissions. */
+  messages: (UserMessage | ToolMessage | ToolPermissionMessage)[];
+  /** Application-side tools. Overrides tools declared at session creation. */
+  tools?: ToolSpec[];
 }
+```
+
+## SSEEvent
+
+```typescript
+/** A tool call emitted by the agent during a streaming turn. */
+interface ToolCallEvent {
+  toolCallId: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface SessionStartEvent {
+  event: "session_start";
+  sessionId: string;
+}
+
+interface TurnStartEvent {
+  event: "turn_start";
+}
+
+interface TextDeltaEvent {
+  event: "text_delta";
+  delta: string;
+}
+
+interface ThinkingDeltaEvent {
+  event: "thinking_delta";
+  delta: string;
+}
+
+interface TextEvent {
+  event: "text";
+  text: string;
+}
+
+interface ThinkingEvent {
+  event: "thinking";
+  thinking: string;
+}
+
+interface ToolCallSSEEvent extends ToolCallEvent {
+  event: "tool_call";
+}
+
+interface ToolResultEvent {
+  event: "tool_result";
+  toolCallId: string;
+  content: string | ContentBlock[];
+}
+
+interface TurnStopEvent {
+  event: "turn_stop";
+  stopReason: StopReason;
+}
+
+/** SSE event data for `stream: "delta"` and `stream: "message"` responses. */
+type SSEEvent =
+  | SessionStartEvent // PUT /session only
+  | TurnStartEvent
+  | TextDeltaEvent // delta mode only
+  | ThinkingDeltaEvent // delta mode only
+  | TextEvent // message mode only
+  | ThinkingEvent // message mode only
+  | ToolCallSSEEvent
+  | ToolResultEvent // server-side tools only
+  | TurnStopEvent;
+
+/** Events emitted in `stream: "delta"` mode. */
+type DeltaSSEEvent =
+  | TurnStartEvent
+  | TextDeltaEvent
+  | ThinkingDeltaEvent
+  | ToolCallSSEEvent
+  | ToolResultEvent
+  | TurnStopEvent;
+
+/** Events emitted in `stream: "message"` mode. */
+type MessageSSEEvent =
+  | TurnStartEvent
+  | TextEvent
+  | ThinkingEvent
+  | ToolCallSSEEvent
+  | ToolResultEvent
+  | TurnStopEvent;
 ```
 
 ## StopReason
@@ -232,15 +366,21 @@ interface SessionTurnRequest {
 ```typescript
 type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
 ```
+## StreamMode
+
+```typescript
+type StreamMode = "delta" | "message" | "none";
+```
 
 ## ToolSpec
 
 ```typescript
-// Tool spec (application-side, declared in request; server-side, declared in /meta)
+/** Declares a tool (application-side in requests; server-side in `/meta`). */
 interface ToolSpec {
   name: string;
   title?: string;
   description: string;
-  inputSchema: JsonSchema;
+  inputSchema: JSONSchema;
 }
 ```
+
