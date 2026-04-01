@@ -201,11 +201,7 @@ interface ToolMessage {
 }
 
 /** A message that can appear in conversation history. */
-type HistoryMessage =
-  | SystemMessage
-  | UserMessage
-  | AssistantMessage
-  | ToolMessage;
+type HistoryMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
 /** Grants or denies permission for the server to invoke a tool on the client's behalf. */
 interface ToolPermissionMessage {
@@ -374,6 +370,7 @@ type MessageSSEEvent =
 ```typescript
 type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
 ```
+
 ## StreamMode
 
 ```typescript
@@ -391,4 +388,3 @@ interface ToolSpec {
   inputSchema: JSONSchema;
 }
 ```
-

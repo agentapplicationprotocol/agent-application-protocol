@@ -2,30 +2,37 @@
   "name": "agent-application-protocol",
   "version": "1.0.0",
   "description": "![banner](./images/banner.png)",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
+  "keywords": [],
+  "homepage": "https://github.com/agentapplicationprotocol/agent-application-protocol#readme",
+  "bugs": {
+    "url": "https://github.com/agentapplicationprotocol/agent-application-protocol/issues"
   },
-  "scripts": {
-    "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
-  },
+  "license": "Apache-2.0",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/agentapplicationprotocol/agent-application-protocol.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "Apache-2.0",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/agentapplicationprotocol/agent-application-protocol/issues"
+  "directories": {
+    "doc": "docs"
   },
-  "homepage": "https://github.com/agentapplicationprotocol/agent-application-protocol#readme",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "prepare": "husky"
+  },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "mermaid": "^11.13.0",
+    "oxfmt": "^0.43.0",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17"
+  },
+  "lint-staged": {
+    "*.{json,md}": "oxfmt"
   }
 }
