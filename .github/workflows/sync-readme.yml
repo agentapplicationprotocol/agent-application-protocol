@@ -1,0 +1,22 @@
+name: Sync README to org profile
+
+on:
+  push:
+    paths: [README.md]
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push README to org profile repo
+        run: |
+          git clone https://github.com/agentapplicationprotocol/.github.git profile
+          cp README.md profile/profile/README.md
+          cd profile
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git remote set-url origin https://x-access-token:${{ secrets.ORG_PROFILE_TOKEN }}@github.com/agentapplicationprotocol/.github.git
+          git add profile/README.md
+          git diff --staged --quiet || (git commit -m "Sync README from agent-application-protocol" && git push)
