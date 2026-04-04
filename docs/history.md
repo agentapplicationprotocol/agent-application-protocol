@@ -13,3 +13,11 @@ Each agent declares its history persistence capabilities in `GET /meta` via `cap
 ## Client History
 
 The client may independently persist the full conversation history on its own side for display purposes. This is entirely client-managed and is never sent back to the server.
+
+## History Consistency
+
+Client and server histories may be inconsistent with each other — this is intentional by design. Neither side sends its own history to the other.
+
+- Client history is for display purposes only.
+- Server full history is for audit and record-keeping.
+- Server compacted history is what the agent feeds to the LLM for inference. Note that even the compacted history returned by the server may not exactly reflect what was sent to the LLM.
