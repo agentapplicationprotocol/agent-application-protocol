@@ -30,7 +30,7 @@ graph LR
     User -->|interacts with| App
 
     subgraph App [Application]
-        AppFunc[Purpose-built UI</br>App-side Tools]
+        AppFunc[Purpose-built UI</br>Client-side Tools]
     end
 
     App <-->|AAP| Agent
@@ -42,12 +42,12 @@ graph LR
 
 There are two kinds of tools:
 
-- **Application-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests, the agent emits `tool_call` events and stops; the client executes them and re-submits with the results.
-- **Server-side tools**: owned and executed by the Agent (e.g. persistent memory management, web search, code execution). Declared by the server in `GET /meta`. The client references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
+- **Client-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests, the agent emits `tool_call` events and stops; the application executes them and re-submits with the results.
+- **Server-side tools**: owned and executed by the Agent (e.g. persistent memory management, web search, code execution). Declared by the server in `GET /meta`. The application references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
 
 Both sides can extend their capabilities via MCP servers — the application wires in domain tools, the agent wires in general-purpose tools like web search or code execution.
 
-Communication uses HTTP with Server-Sent Events (SSE) for streaming responses, modeled after streaming LLM APIs.
+Communication uses HTTP with Server-Sent Events (SSE) for streaming responses. This makes servers stateless and horizontally scalable — session history can be stored externally with no persistent server connection required.
 
 ## Why AAP
 
@@ -71,15 +71,16 @@ All scenarios could connect to the same general-purpose agent — the applicatio
 
 [Agent Client Protocol (ACP)](https://agentclientprotocol.com) is primarily designed for IDEs connecting to local coding agents. AAP targets any application connecting to any remote agent.
 
-|            | AAP                                       | ACP                                     |
-| ---------- | ----------------------------------------- | --------------------------------------- |
-| Target     | Any application ↔ any agent               | IDE ↔ coding agent                      |
-| Transport  | HTTP + SSE, no bidirectional channel      | JSON-RPC, requires a long-lived session |
-| Tools      | Application tools + agent tools           | Agent tools only                        |
-| Privacy    | First-class agent and application privacy | Not specified                           |
-| Deployment | Remote-first, SaaS, agent as a service    | Local-first                             |
+|            | AAP                                    | ACP                                     |
+| ---------- | -------------------------------------- | --------------------------------------- |
+| Target     | Any application ↔ any agent            | IDE ↔ coding agent                      |
+| Transport  | HTTP + SSE, no bidirectional channel   | JSON-RPC, requires a long-lived session |
+| Tools      | Application tools + agent tools        | Agent tools only                        |
+| Deployment | Remote-first, SaaS, agent as a service | Local-first                             |
 
-ACP's streamable HTTP transport is still a draft proposal. AAP's unidirectional SSE makes servers stateless and horizontally scalable — session history can be stored externally with no persistent server connection required.
+> [ACP's streamable HTTP transport](https://agentclientprotocol.com/protocol/transports#streamable-http) is still a draft proposal.
+>
+> [ACP's application-provided tools](https://agentclientprotocol.com/rfds/mcp-over-acp) is also still in draft.
 
 ## Credits
 
