@@ -54,7 +54,7 @@ The server may have internal tools that are not declared in `GET /meta`. The ser
 
 ## Parallel tool calls
 
-The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute application-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /sessions/:id/turns`. Trusted server-side tools are handled inline by the server and do not require client action.
+The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute client-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /sessions/:id/turns`. Trusted server-side tools are handled inline by the server and do not require client action.
 
 Example with two client-side tools, one trusted server tool, and one untrusted server tool — all called in parallel:
 
@@ -108,5 +108,5 @@ If a client has no in-memory state (e.g. after a restart or recovery), it can ca
 
 1. Fetch session history via `GET /sessions/:id/history`.
 2. Inspect the last assistant message in history — if it has unresolved tool calls (no matching `tool` message in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
-3. Apply the same client-side resolving logic: identify application-side tools to execute and server-side tools requiring permission.
+3. Apply the same client-side resolving logic: identify client-side tools to execute and server-side tools requiring permission.
 4. Submit results and permissions via `POST /sessions/:id/turns` to continue.

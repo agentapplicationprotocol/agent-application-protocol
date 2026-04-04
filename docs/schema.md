@@ -58,7 +58,7 @@ interface AgentInfo {
     };
     /** Declares what application-provided inputs the agent supports. */
     application?: {
-      /** Agent accepts application-side tools in requests. */
+      /** Agent accepts client-side tools in requests. */
       tools?: Record<string, never>;
     };
     /** Declares what image input the agent supports. */
@@ -157,7 +157,7 @@ interface CreateSessionRequest {
   agent: AgentConfig;
   /** Optional seed history (e.g. system prompt or prior conversation). */
   messages?: HistoryMessage[];
-  /** Application-side tools with full schema. */
+  /** client-side tools with full schema. */
   tools?: ToolSpec[];
 }
 ```
@@ -257,7 +257,7 @@ interface SessionResponse {
   sessionId: string;
   /** Secret option values in `agent.options` are redacted (e.g. `"***"`). */
   agent: AgentConfig;
-  /** Application-side tools declared for this session. */
+  /** client-side tools declared for this session. */
   tools?: ToolSpec[];
 }
 ```
@@ -273,7 +273,7 @@ interface SessionTurnRequest {
   stream?: StreamMode;
   /** A single user message, or a mixed list of tool results and tool permissions. */
   messages: (UserMessage | ToolMessage | ToolPermissionMessage)[];
-  /** Application-side tools. Overrides tools declared at session creation. */
+  /** client-side tools. Overrides tools declared at session creation. */
   tools?: ToolSpec[];
 }
 ```

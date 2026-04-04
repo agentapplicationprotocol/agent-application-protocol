@@ -108,7 +108,7 @@ Returns the protocol version and the list of agents available on this server.
     - `stream.message` — if present, the agent supports `"message"` streaming.
     - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
   - `application` — declares what application-provided inputs the agent supports:
-    - `application.tools` — if present, the agent accepts application-side tools in requests.
+    - `application.tools` — if present, the agent accepts client-side tools in requests.
   - `image` — declares what image input the agent supports:
     - `image.http` — if present, the agent accepts `https://` image URLs.
     - `image.data` — if present, the agent accepts `data:` URI (base64) images.
@@ -213,7 +213,7 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
   - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed server-side tools are disabled.
   - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values. Individual omitted options also fall back to their default values.
 - `messages` — _(optional)_ history to seed the session with (e.g. a system prompt or prior conversation).
-- `tools` — _(optional)_ application-side tools with full schema.
+- `tools` — _(optional)_ client-side tools with full schema.
 
 **`agent.tools` object fields:**
 
@@ -263,7 +263,7 @@ Returns the session object for the given session ID.
 
 - `sessionId` — the session identifier.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
-- `tools` — application-side tools declared for this session.
+- `tools` — client-side tools declared for this session.
 
 ## DELETE /sessions/:id
 
@@ -334,4 +334,4 @@ Send a new user turn or tool calling results to an existing session. The server 
   - `agent.options` — _(optional)_ key-value option overrides. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value. The server must persist these for the lifetime of the session.
 - `stream` — _(optional)_ response mode. See [Response Modes](/response).
 - `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
-- `tools` — _(optional)_ application-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
+- `tools` — _(optional)_ client-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
