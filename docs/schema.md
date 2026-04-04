@@ -377,6 +377,6 @@ interface ToolSpec {
   name: string;
   title?: string;
   description: string;
-  inputSchema: JSONSchema;
+  parameters: JSONSchema;
 }
 ```

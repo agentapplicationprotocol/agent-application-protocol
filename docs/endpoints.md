@@ -42,7 +42,7 @@ Returns the protocol version and the list of agents available on this server.
           "name": "web_search",
           "title": "Web Search",
           "description": "Search the web for information",
-          "inputSchema": {
+          "parameters": {
             "type": "object",
             "properties": {
               "query": { "type": "string", "description": "Search query" }
@@ -149,7 +149,7 @@ Returns a paginated list of sessions.
         {
           "name": "get_weather",
           "description": "Get current weather for a location",
-          "inputSchema": {
+          "parameters": {
             "type": "object",
             "properties": {
               "location": { "type": "string" }
@@ -194,7 +194,7 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
     {
       "name": "get_weather",
       "description": "Get current weather for a location",
-      "inputSchema": {
+      "parameters": {
         "type": "object",
         "properties": {
           "location": { "type": "string" }
@@ -247,7 +247,7 @@ Returns the session object for the given session ID.
     {
       "name": "get_weather",
       "description": "Get current weather for a location",
-      "inputSchema": {
+      "parameters": {
         "type": "object",
         "properties": {
           "location": { "type": "string" }
@@ -315,7 +315,7 @@ Send a new user turn or tool calling results to an existing session. The server 
     {
       "name": "get_weather",
       "description": "Get current weather for a location",
-      "inputSchema": {
+      "parameters": {
         "type": "object",
         "properties": {
           "location": { "type": "string" }
