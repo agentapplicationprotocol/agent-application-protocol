@@ -30,7 +30,7 @@ Returns the protocol version and the list of agents available on this server.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "agents": [
     {
       "name": "research-agent",
