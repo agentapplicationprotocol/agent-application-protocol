@@ -26,8 +26,8 @@ export default withMermaid(
         { text: "Response", link: "/response" },
         { text: "Tool Call", link: "/tool-call" },
         { text: "History", link: "/history" },
-        { text: "Schema", link: "/schema" },
         { text: "Privacy", link: "/privacy" },
+        { text: "Schema", link: "/schema" },
       ],
       socialLinks: [
         {
