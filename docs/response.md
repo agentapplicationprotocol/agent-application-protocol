@@ -20,7 +20,7 @@ Each event is a JSON object on the `data:` field.
 
 ### `session_start`
 
-The first event in a `PUT /session` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns. The session ID is an arbitrary string whose format is defined by the server.
+The first event in a `POST /sessions` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns. The session ID is an arbitrary string whose format is defined by the server.
 
 ```
 event: session_start
@@ -29,7 +29,7 @@ data: {"sessionId": "sess_abc123"}
 
 ### `turn_start`
 
-Marks the beginning of the agent's response. For `PUT /session`, emitted immediately after `session_start`. For `POST /session/:id`, this is the first event in the stream.
+Marks the beginning of the agent's response. For `POST /sessions`, emitted immediately after `session_start`. For `POST /sessions/:id/turns`, this is the first event in the stream.
 
 ```
 event: turn_start
@@ -81,15 +81,15 @@ event: tool_call
 data: {"toolCallId": "call_001", "name": "get_weather", "input": {"location": "Tokyo"}}
 ```
 
-For **application-side tools**, the client executes the tool and submits the results in a subsequent `POST /session/:id` request.
+For **application-side tools**, the client executes the tool and submits the results in a subsequent `POST /sessions/:id/turns` request.
 
 For **server-side tools** where `trust: true`, the server invokes the tool inline and emits a `tool_result` event with the result — no client round-trip needed. The agent continues streaming without stopping.
 
-For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision for each untrusted tool call in a subsequent `POST /session/:id` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
+For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision for each untrusted tool call in a subsequent `POST /sessions/:id/turns` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
 
 The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one application-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
 
-The client must collect all application-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /session/:id` request.
+The client must collect all application-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /sessions/:id/turns` request.
 
 Tool names must be unique across application tools and agent tools in a single request. The client identifies whether a tool call is application-side or server-side by matching the name against its request.
 
@@ -139,7 +139,7 @@ Normal response:
 }
 ```
 
-`PUT /session` additionally includes `sessionId`:
+`POST /sessions` additionally includes `sessionId`:
 
 ```json
 {
@@ -273,7 +273,7 @@ Messages follow OpenAI-compatible roles.
 ### Tool result message
 
 - **Server-side tool**: the agent executes the tool, stores the result in history, and includes it in the returned messages.
-- **Application-side tool**: the client executes the tool and submits the result via `POST /session/:id`.
+- **Application-side tool**: the client executes the tool and submits the result via `POST /sessions/:id/turns`.
 
 ```json
 {
@@ -287,7 +287,7 @@ Messages follow OpenAI-compatible roles.
 
 ### Tool permission message
 
-Used to submit a permission decision for an untrusted server-side tool call via `POST /session/:id`. The agent continues and informs the LLM of the decision. These messages are never stored in session history.
+Used to submit a permission decision for an untrusted server-side tool call via `POST /sessions/:id/turns`. The agent continues and informs the LLM of the decision. These messages are never stored in session history.
 
 When `granted: true`, the agent executes the tool and stores the tool result in history. When `granted: false`, the agent stores a message in history indicating the tool was denied by the user. The client may include an optional `reason` string that the agent will relay to the LLM.
 
@@ -315,7 +315,7 @@ sequenceDiagram
     Agent-->>App: agents
 
     loop Each turn (user message or tool result/permission)
-        App->>Agent: PUT /session or POST /session/:id
+        App->>Agent: POST /sessions or POST /sessions/:id/turns
         Agent-->>App: SSE: session_start (sessionId, PUT only)
         Agent-->>App: SSE: turn_start
         loop Per message in turn

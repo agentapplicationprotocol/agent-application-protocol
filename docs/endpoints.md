@@ -2,15 +2,15 @@
 
 Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All endpoints below are relative to that base URL.
 
-| Method   | Path                   | Description                            |
-| -------- | ---------------------- | -------------------------------------- |
-| `GET`    | `/meta`                | Get available agents info              |
-| `GET`    | `/sessions`            | List sessions                          |
-| `GET`    | `/session/:id`         | Get a session by ID                    |
-| `GET`    | `/session/:id/history` | Get session history                    |
-| `PUT`    | `/session`             | Create a new session                   |
-| `POST`   | `/session/:id`         | Send a new turn to an existing session |
-| `DELETE` | `/session/:id`         | Delete a session                       |
+| Method   | Path                    | Description                            |
+| -------- | ----------------------- | -------------------------------------- |
+| `GET`    | `/meta`                 | Get available agents info              |
+| `GET`    | `/sessions`             | List sessions                          |
+| `POST`   | `/sessions`             | Create a new session                   |
+| `GET`    | `/sessions/:id`         | Get a session by ID                    |
+| `DELETE` | `/sessions/:id`         | Delete a session                       |
+| `GET`    | `/sessions/:id/history` | Get session history                    |
+| `POST`   | `/sessions/:id/turns`   | Send a new turn to an existing session |
 
 ## Authentication
 
@@ -100,9 +100,9 @@ Returns the protocol version and the list of agents available on this server.
 - `tools` — server-side tools the agent chooses to expose to the client for configuration (enabling, disabling, or granting trust). Agents may also have unexposed tools that run inline without client involvement, so this is a subset of the agent's actual tools. When a `tool_call` or `tool_result` event references an unknown tool name, clients should handle it gracefully.
 - `options` — configurable options the client may set per request.
 - `capabilities` — _(optional)_ declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
-  - `history` — declares what history the agent can return in `GET /session/:id`:
-    - `history.compacted` — if present, the server can return compacted history in `GET /session/:id`.
-    - `history.full` — if present, the server can return full uncompacted history in `GET /session/:id`.
+  - `history` — declares what history the agent can return in `GET /sessions/:id/history`:
+    - `history.compacted` — if present, the server can return compacted history in `GET /sessions/:id/history`.
+    - `history.full` — if present, the server can return full uncompacted history in `GET /sessions/:id/history`.
   - `stream` — declares which stream modes the agent supports. If omitted, clients should assume only `"none"` is supported.
     - `stream.delta` — if present, the agent supports `"delta"` streaming.
     - `stream.message` — if present, the agent supports `"message"` streaming.
@@ -166,71 +166,10 @@ Returns a paginated list of sessions.
 
 **Fields:**
 
-- `sessions` — array of session objects. Each object has the same shape as `GET /session/:id`.
+- `sessions` — array of session objects. Each object has the same shape as `GET /sessions/:id`.
 - `next` — _(optional)_ opaque cursor string whose format is defined by the server; pass as `after` to retrieve the next page. Absent when there are no more results.
 
-## GET /session/:id
-
-Returns the session object for the given session ID.
-
-### Response
-
-```json
-{
-  "sessionId": "sess_abc123",
-  "agent": {
-    "name": "research-agent",
-    "tools": [{ "name": "web_search", "trust": true }],
-    "options": {
-      "model": "claude-opus-4-5",
-      "language": "Japanese"
-    }
-  },
-  "tools": [
-    {
-      "name": "get_weather",
-      "description": "Get current weather for a location",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "location": { "type": "string" }
-        },
-        "required": ["location"]
-      }
-    }
-  ]
-}
-```
-
-**Fields:**
-
-- `sessionId` — the session identifier.
-- `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
-- `tools` — application-side tools declared for this session.
-
-## GET /session/:id/history
-
-Returns the conversation history for the given session. Only available if the agent declared history capabilities in `GET /meta`.
-
-### Query Parameters
-
-- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
-
-### Response
-
-```json
-{
-  "history": {
-    "compacted": [...]
-  }
-}
-```
-
-**Fields:**
-
-- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
-
-## PUT /session
+## POST /sessions
 
 Creates a new session. The server returns a `sessionId` the client uses for subsequent turns.
 
@@ -306,7 +245,76 @@ For SSE modes, `sessionId` is returned in the `session_start` event at the begin
 
 For tool call handling, see [Tool Call Flow](/tool-call).
 
-## POST /session/:id
+## GET /sessions/:id
+
+Returns the session object for the given session ID.
+
+### Response
+
+```json
+{
+  "sessionId": "sess_abc123",
+  "agent": {
+    "name": "research-agent",
+    "tools": [{ "name": "web_search", "trust": true }],
+    "options": {
+      "model": "claude-opus-4-5",
+      "language": "Japanese"
+    }
+  },
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a location",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ]
+}
+```
+
+**Fields:**
+
+- `sessionId` — the session identifier.
+- `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
+- `tools` — application-side tools declared for this session.
+
+## DELETE /sessions/:id
+
+Deletes a session and its associated history.
+
+### Response
+
+`204 No Content`
+
+## GET /sessions/:id/history
+
+Returns the conversation history for the given session. Only available if the agent declared history capabilities in `GET /meta`.
+
+### Query Parameters
+
+- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
+
+### Response
+
+```json
+{
+  "history": {
+    "compacted": [...]
+  }
+}
+```
+
+**Fields:**
+
+- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
+
+## POST /sessions/:id/turns
 
 Send a new user turn or tool calling results to an existing session. The server appends the message to its history, runs the agent, and streams or returns the response.
 
@@ -346,11 +354,3 @@ Send a new user turn or tool calling results to an existing session. The server 
 - `stream` — _(optional)_ response mode. See [Response Modes](/response).
 - `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
 - `tools` — _(optional)_ application-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
-
-## DELETE /session/:id
-
-Deletes a session and its associated history.
-
-### Response
-
-`204 No Content`
