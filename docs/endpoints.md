@@ -210,8 +210,8 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
 
 - `agent` — _(required)_ agent configuration.
   - `agent.name` — agent name to invoke.
-  - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed agent tools are disabled.
-  - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values.
+  - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed server-side tools are disabled.
+  - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values. Individual omitted options also fall back to their default values.
 - `messages` — _(optional)_ history to seed the session with (e.g. a system prompt or prior conversation).
 - `tools` — _(optional)_ application-side tools with full schema.
 
