@@ -1,52 +1,79 @@
-# Tool Call Flow
+# Tool Call
 
-## Application-side tool
+## Tool Call Flow
 
-1. Client → Server: POST /sessions/:id/turns
-2. Client ← Server: SSE: tool_call (toolCallId, name, input)
-3. Client ← Server: SSE: turn_stop (stopReason: "tool_use")
-4. Client executes tool
-5. Client → Server: POST /sessions/:id/turns (messages: [tool result])
-6. Client ← Server: SSE: text_delta, turn_stop (stopReason: "end_turn")
+### Client-side tool
 
-## Server-side tool (trusted, inline)
+```mermaid
+sequenceDiagram
+    participant App as Application (Client)
+    participant Agent as Agent (Server)
 
-1. Client → Server: POST /sessions/:id/turns
-2. Client ← Server: SSE: tool_call (toolCallId, name, input)
-3. Server executes tool inline
-4. Client ← Server: SSE: tool_result (toolCallId, content)
-5. Client ← Server: SSE: text_delta, turn_stop (stopReason: "end_turn")
+    App->>Agent: POST /sessions/:id/turns
+    Agent-->>App: SSE: tool_call (toolCallId, name, input)
+    Agent-->>App: SSE: turn_stop (stopReason: "tool_use")
+    Note left of App: Client executes tool
+    App->>Agent: POST /sessions/:id/turns (tool result)
+    Agent-->>App: SSE: text_delta, turn_stop (end_turn)
+```
 
-## Server-side tool (permission required)
+### Server-side tool (trusted, inline)
 
-1. Client → Server: POST /sessions/:id/turns
-2. Client ← Server: SSE: tool_call (toolCallId, name, input)
-3. Client ← Server: SSE: turn_stop (stopReason: "tool_use")
-4. Client grants or denies permission
-5. Client → Server: POST /sessions/:id/turns (messages: [tool_permission])
-6. Server executes tool (or informs LLM of denial), continues streaming
-7. Client ← Server: SSE: tool_result (toolCallId, content)
-8. Client ← Server: SSE: text_delta, turn_stop (stopReason: "end_turn")
+```mermaid
+sequenceDiagram
+    participant App as Application (Client)
+    participant Agent as Agent (Server)
+
+    App->>Agent: POST /sessions/:id/turns
+    Agent-->>App: SSE: tool_call (toolCallId, name, input)
+    Note right of Agent: Server executes tool inline
+    Agent-->>App: SSE: tool_result (toolCallId, content)
+    Agent-->>App: SSE: text_delta, turn_stop (end_turn)
+```
+
+### Server-side tool (permission required)
+
+```mermaid
+sequenceDiagram
+    participant App as Application (Client)
+    participant Agent as Agent (Server)
+
+    App->>Agent: POST /sessions/:id/turns
+    Agent-->>App: SSE: tool_call (toolCallId, name, input)
+    Agent-->>App: SSE: turn_stop (stopReason: "tool_use")
+    Note left of App: Client grants<br/>or denies permission
+    App->>Agent: POST /sessions/:id/turns (tool_permission)
+    Note right of Agent: Server executes tool<br/>or informs LLM of denial
+    Agent-->>App: SSE: tool_result (toolCallId, content)
+    Agent-->>App: SSE: text_delta, turn_stop (end_turn)
+```
 
 ## Parallel tool calls
 
 The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute application-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /sessions/:id/turns`. Trusted server-side tools are handled inline by the server and do not require client action.
 
-Example with two application-side tools, one trusted server tool, and one untrusted server tool — all called in parallel:
+Example with two client-side tools, one trusted server tool, and one untrusted server tool — all called in parallel:
 
-1. Client → Server: POST /sessions/:id/turns (messages: [user message])
-2. Client ← Server: SSE: tool_call (toolCallId: "call_001", name: "client_tool_1", input: {...})
-3. Client ← Server: SSE: tool_call (toolCallId: "call_002", name: "client_tool_2", input: {...})
-4. Client ← Server: SSE: tool_call (toolCallId: "call_003", name: "server_tool_trusted", input: {...})
-5. Client ← Server: SSE: tool_call (toolCallId: "call_004", name: "server_tool_untrusted", input: {...})
-6. Server executes server_tool_trusted inline
-7. Client ← Server: SSE: tool_result (toolCallId: "call_003", content: "...")
-8. Client ← Server: SSE: turn_stop (stopReason: "tool_use")
-9. Client executes client_tool_1 and client_tool_2; grants or denies permission for server_tool_untrusted
-10. Client → Server: POST /sessions/:id/turns (messages: [tool result call_001, tool result call_002, tool_permission call_004])
-11. Server executes server_tool_untrusted (or informs LLM of denial)
-12. Client ← Server: SSE: tool_result (toolCallId: "call_004", content: "...")
-13. Client ← Server: SSE: text_delta, turn_stop (stopReason: "end_turn")
+```mermaid
+sequenceDiagram
+    participant App as Application (Client)
+    participant Agent as Agent (Server)
+
+    App->>Agent: POST /sessions/:id/turns
+    Agent-->>App: SSE: tool_call call_001 client_tool_1
+    Agent-->>App: SSE: tool_call call_002 client_tool_2
+    Agent-->>App: SSE: tool_call call_003 server_tool_trusted
+    Agent-->>App: SSE: tool_call call_004 server_tool_untrusted
+    Note right of Agent: Server executes<br/>server_tool_trusted inline
+    Agent-->>App: SSE: tool_result call_003
+    Agent-->>App: SSE: turn_stop stopReason tool_use
+    Note left of App: Client executes<br/>client_tool_1, client_tool_2
+    Note left of App: Client grants/denies<br/>permission for call_004
+    App->>Agent: POST /sessions/:id/turns results + permission
+    Note right of Agent: Server executes server_tool_untrusted<br/>or informs LLM of denial
+    Agent-->>App: SSE: tool_result call_004
+    Agent-->>App: SSE: text_delta, turn_stop end_turn
+```
 
 ## Tool call resolving
 
@@ -57,7 +84,7 @@ After the LLM emits tool calls, the server resolves each one:
 1. For each `tool_call`, check if it is a trusted server-side tool — if so, execute it inline immediately and emit a `tool_result` event.
 2. If any tool calls remain unexecuted, emit `turn_stop` with `stopReason: "tool_use"`.
 3. When the client re-submits, append the client-provided tool result messages to history.
-4. For each `tool_permission` in the submission, find the matching `tool_call` by `toolCallId` — execute the tool if granted, or store a `tool` message with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM.
+4. For each `tool_permission` in the submission, find the matching `tool_call` by `toolCallId` — execute the tool if granted, or store a `tool` message with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM. `tool_permission` messages are never appended to history — they are dropped after processing.
 5. Append all `tool_result` events to history and continue the agent loop.
 
 ### Client
@@ -66,14 +93,14 @@ When the client receives `turn_stop` with `stopReason: "tool_use"`:
 
 1. Collect all `tool_call` events from the current turn.
 2. Ignore any whose `toolCallId` already has a matching `tool_result` — those were handled inline by the server.
-3. For each remaining tool call, determine whether it is an application-side tool (by matching the name against tools declared in the request) or a server-side tool:
-   - Application-side tool: execute it and collect the result.
+3. For each remaining tool call, determine whether it is a client-side tool (by matching the name against tools declared in the request) or a server-side tool:
+   - Client-side tool: optionally prompt the user whether to proceed, then execute it and collect the result.
    - Server-side tool: prompt the user or apply policy to grant or deny permission.
 4. Submit all results and permissions together in a single `POST /sessions/:id/turns`.
 
 ## Tool call resumption
 
-If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id` to retrieve the session history and resume from where it left off:
+If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id/history` to retrieve the session history and resume from where it left off:
 
 1. Fetch session history via `GET /sessions/:id/history`.
 2. Inspect the last assistant message in history — if it has unresolved tool calls (no matching `tool` message in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
