@@ -48,6 +48,10 @@ sequenceDiagram
     Agent-->>App: SSE: text_delta, turn_stop (end_turn)
 ```
 
+## Unexposed server-side tools
+
+The server may have internal tools that are not declared in `GET /meta`. The server may still stream `tool_call` and `tool_result` events for these tools so the client can observe them. Clients should be prepared to handle unknown tool names — either displaying them or discarding them.
+
 ## Parallel tool calls
 
 The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute application-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /sessions/:id/turns`. Trusted server-side tools are handled inline by the server and do not require client action.
