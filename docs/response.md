@@ -204,6 +204,25 @@ When a trusted server-side tool was called inline, the full exchange is included
 }
 ```
 
+When an untrusted server-side tool was granted permission and executed, the follow-up turn response includes the tool result and the agent's final reply:
+
+```json
+{
+  "stopReason": "end_turn",
+  "messages": [
+    {
+      "role": "tool",
+      "toolCallId": "call_003",
+      "content": "Tokyo: 18°C, partly cloudy"
+    },
+    {
+      "role": "assistant",
+      "content": "The weather in Tokyo is 18°C, partly cloudy."
+    }
+  ]
+}
+```
+
 ## Message Format
 
 Messages follow OpenAI-compatible roles.
@@ -265,7 +284,7 @@ Messages follow OpenAI-compatible roles.
 
 Used to submit a permission decision for an untrusted server-side tool call via `POST /sessions/:id/turns`. The agent continues and informs the LLM of the decision. These messages are never stored in session history.
 
-When `granted: true`, the agent executes the tool and stores the tool result in history. When `granted: false`, the agent stores a message in history indicating the tool was denied by the user. The client may include an optional `reason` string that the agent will relay to the LLM.
+When `granted: true`, the agent executes the tool and stores the tool result in history. When `granted: false`, the agent stores a `tool` message in history with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM. The client may include an optional `reason` string that the agent will relay to the LLM.
 
 ```json
 { "role": "tool_permission", "toolCallId": "call_002", "granted": true }
@@ -298,9 +317,11 @@ sequenceDiagram
         Agent-->>App: SSE: turn_start
         loop Per message in turn
             opt Thinking
-                Agent-->>App: SSE: thinking_delta (repeats)
+                Agent-->>App: SSE: thinking_delta (delta mode, repeats)
+                Agent-->>App: SSE: thinking (message mode)
             end
-            Agent-->>App: SSE: text_delta (repeats)
+            Agent-->>App: SSE: text_delta (delta mode, repeats)
+            Agent-->>App: SSE: text (message mode)
             opt Server-side tool call (trusted)
                 Agent-->>App: SSE: tool_call
                 Note right of Agent: Server executes tool inline

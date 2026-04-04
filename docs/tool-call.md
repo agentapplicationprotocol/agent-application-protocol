@@ -57,7 +57,7 @@ After the LLM emits tool calls, the server resolves each one:
 1. For each `tool_call`, check if it is a trusted server-side tool — if so, execute it inline immediately and emit a `tool_result` event.
 2. If any tool calls remain unexecuted, emit `turn_stop` with `stopReason: "tool_use"`.
 3. When the client re-submits, append the client-provided tool result messages to history.
-4. For each `tool_permission` in the submission, find the matching `tool_call` by `toolCallId` — execute the tool if granted, or record a denial to inform the LLM.
+4. For each `tool_permission` in the submission, find the matching `tool_call` by `toolCallId` — execute the tool if granted, or store a `tool` message with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM.
 5. Append all `tool_result` events to history and continue the agent loop.
 
 ### Client
@@ -75,7 +75,7 @@ When the client receives `turn_stop` with `stopReason: "tool_use"`:
 
 If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id` to retrieve the session history and resume from where it left off:
 
-1. Fetch session history via `GET /sessions/:id`.
+1. Fetch session history via `GET /sessions/:id/history`.
 2. Inspect the last assistant message in history — if it has unresolved tool calls (no matching `tool` message in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
 3. Apply the same client-side resolving logic: identify application-side tools to execute and server-side tools requiring permission.
 4. Submit results and permissions via `POST /sessions/:id/turns` to continue.

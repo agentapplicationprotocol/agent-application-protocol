@@ -279,7 +279,7 @@ Returns the conversation history for the given session. Only available if the ag
 
 ### Query Parameters
 
-- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
+- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`. If the requested type is not supported by the agent (i.e. not declared in `capabilities.history`), the server returns `404 Not Found`.
 
 ### Response
 
@@ -329,7 +329,7 @@ Send a new user turn or tool calling results to an existing session. The server 
 
 **Fields:**
 
-- `agent` — _(optional)_ session-level agent overrides. The server must persist these for the lifetime of the session.
+- `agent` — _(optional)_ session-level agent overrides. The server must persist these for the lifetime of the session. Agent `name` cannot be changed after session creation.
   - `agent.tools` — _(optional)_ server-side tools. Overrides `agent.tools` declared at session creation.
   - `agent.options` — _(optional)_ key-value option overrides. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value. The server must persist these for the lifetime of the session.
 - `stream` — _(optional)_ response mode. See [Response Modes](/response).
