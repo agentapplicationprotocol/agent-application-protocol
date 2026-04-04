@@ -8,6 +8,7 @@ export default withMermaid(
     cleanUrls: true,
     head: [["link", { rel: "icon", href: "/favicon.png" }]],
     themeConfig: {
+      outline: [2, 3],
       nav: [
         { text: "Overview", link: "/overview" },
         {
