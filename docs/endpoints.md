@@ -171,7 +171,7 @@ Returns a paginated list of sessions.
 
 ## POST /sessions
 
-Creates a new session. The server returns a `sessionId` the client uses for subsequent turns.
+Creates a new session and returns a `sessionId`. Does not run the agent — use `POST /sessions/:id/turns` to send the first message.
 
 ### Request Body
 
@@ -185,11 +185,10 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
       "language": "Japanese"
     }
   },
-  "stream": "delta",
   "messages": [
+    { "role": "system", "content": "You are a helpful assistant." },
     { "role": "user", "content": "What's the capital of France?" },
-    { "role": "assistant", "content": "The capital of France is Paris." },
-    { "role": "user", "content": "What's the weather in Tokyo?" }
+    { "role": "assistant", "content": "The capital of France is Paris." }
   ],
   "tools": [
     {
@@ -213,8 +212,7 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
   - `agent.name` — agent name to invoke.
   - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed agent tools are disabled.
   - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values.
-- `stream` — _(optional)_ response mode: `"delta"`, `"message"`, or `"none"` (default). See [Response Modes](/response).
-- `messages` — _(required)_ conversation history to seed the session with. The last message must be a `user` message, which becomes the first turn.
+- `messages` — _(optional)_ history to seed the session with (e.g. a system prompt or prior conversation).
 - `tools` — _(optional)_ application-side tools with full schema.
 
 **`agent.tools` object fields:**
@@ -224,26 +222,9 @@ Creates a new session. The server returns a `sessionId` the client uses for subs
 
 ### Response
 
-Returns the `sessionId` followed by the agent's response stream (or JSON body).
-
-For non-streaming mode (see [Response Modes](/response#json-response-stream-none) for full details):
-
 ```json
-{
-  "sessionId": "sess_abc123",
-  "stopReason": "end_turn",
-  "messages": [
-    {
-      "role": "assistant",
-      "content": "The weather in Tokyo is 18°C, partly cloudy."
-    }
-  ]
-}
+{ "sessionId": "sess_abc123" }
 ```
-
-For SSE modes, `sessionId` is returned in the `session_start` event at the beginning of the stream. See [SSE Events](/response#sse-events-stream-delta-and-stream-message).
-
-For tool call handling, see [Tool Call Flow](/tool-call).
 
 ## GET /sessions/:id
 

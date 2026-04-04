@@ -2,7 +2,7 @@
 
 ## Application-side tool
 
-1. Client → Server: POST /sessions or POST /sessions/:id/turns
+1. Client → Server: POST /sessions/:id/turns
 2. Client ← Server: SSE: tool_call (toolCallId, name, input)
 3. Client ← Server: SSE: turn_stop (stopReason: "tool_use")
 4. Client executes tool
@@ -11,7 +11,7 @@
 
 ## Server-side tool (trusted, inline)
 
-1. Client → Server: POST /sessions or POST /sessions/:id/turns
+1. Client → Server: POST /sessions/:id/turns
 2. Client ← Server: SSE: tool_call (toolCallId, name, input)
 3. Server executes tool inline
 4. Client ← Server: SSE: tool_result (toolCallId, content)
@@ -19,7 +19,7 @@
 
 ## Server-side tool (permission required)
 
-1. Client → Server: POST /sessions or POST /sessions/:id/turns
+1. Client → Server: POST /sessions/:id/turns
 2. Client ← Server: SSE: tool_call (toolCallId, name, input)
 3. Client ← Server: SSE: turn_stop (stopReason: "tool_use")
 4. Client grants or denies permission

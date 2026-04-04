@@ -18,18 +18,9 @@
 
 Each event is a JSON object on the `data:` field.
 
-### `session_start`
-
-The first event in a `POST /sessions` stream, always preceding `turn_start`. Contains the `sessionId` the client must store for subsequent turns. The session ID is an arbitrary string whose format is defined by the server.
-
-```
-event: session_start
-data: {"sessionId": "sess_abc123"}
-```
-
 ### `turn_start`
 
-Marks the beginning of the agent's response. For `POST /sessions`, emitted immediately after `session_start`. For `POST /sessions/:id/turns`, this is the first event in the stream.
+Marks the beginning of the agent's response. This is the first event in every `POST /sessions/:id/turns` stream.
 
 ```
 event: turn_start
@@ -129,21 +120,6 @@ Normal response:
 
 ```json
 {
-  "stopReason": "end_turn",
-  "messages": [
-    {
-      "role": "assistant",
-      "content": "The weather in Tokyo is 18°C, partly cloudy."
-    }
-  ]
-}
-```
-
-`POST /sessions` additionally includes `sessionId`:
-
-```json
-{
-  "sessionId": "sess_abc123",
   "stopReason": "end_turn",
   "messages": [
     {
@@ -314,9 +290,11 @@ sequenceDiagram
     App->>Agent: GET /meta
     Agent-->>App: agents
 
+    App->>Agent: POST /sessions
+    Agent-->>App: sessionId
+
     loop Each turn (user message or tool result/permission)
-        App->>Agent: POST /sessions or POST /sessions/:id/turns
-        Agent-->>App: SSE: session_start (sessionId, PUT only)
+        App->>Agent: POST /sessions/:id/turns
         Agent-->>App: SSE: turn_start
         loop Per message in turn
             opt Thinking

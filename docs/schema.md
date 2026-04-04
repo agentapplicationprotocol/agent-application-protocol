@@ -40,7 +40,7 @@ interface AgentInfo {
   options?: AgentOption[];
   /** Declares what the agent supports. Missing fields should be treated as unsupported. */
   capabilities?: {
-    /** Declares what history the agent can return in `GET /session/:id`. */
+    /** Declares what history the agent can return in `GET /sessions/:id/history`. */
     history?: {
       /** Server can return compacted history. */
       compacted?: Record<string, never>;
@@ -151,14 +151,12 @@ type ContentBlock =
 ## CreateSessionRequest
 
 ```typescript
-/** Request body for `PUT /session`. */
+/** Request body for `POST /sessions`. */
 interface CreateSessionRequest {
   /** Agent configuration. `name` is required at session creation. */
   agent: AgentConfig;
-  /** Response mode. Defaults to `"none"`. */
-  stream?: StreamMode;
-  /** Seed history. The last message must be a `user` message. */
-  messages: HistoryMessage[];
+  /** Optional seed history (e.g. system prompt or prior conversation). */
+  messages?: HistoryMessage[];
   /** Application-side tools with full schema. */
   tools?: ToolSpec[];
 }
@@ -167,7 +165,7 @@ interface CreateSessionRequest {
 ## CreateSessionResponse
 
 ```typescript
-interface CreateSessionResponse extends AgentResponse {
+interface CreateSessionResponse {
   sessionId: string;
 }
 ```
@@ -228,7 +226,7 @@ interface MetaResponse {
 ## SessionHistoryResponse
 
 ```typescript
-/** Response body for `GET /session/:id/history`. */
+/** Response body for `GET /sessions/:id/history`. */
 interface SessionHistoryResponse {
   history: {
     /** Present when `?type=compacted` */
@@ -254,7 +252,7 @@ interface SessionListResponse {
 ## SessionResponse
 
 ```typescript
-/** Response body for `GET /session/:id` and items in `GET /sessions`. */
+/** Response body for `GET /sessions/:id` and items in `GET /sessions`. */
 interface SessionResponse {
   sessionId: string;
   /** Secret option values in `agent.options` are redacted (e.g. `"***"`). */
@@ -267,7 +265,7 @@ interface SessionResponse {
 ## SessionTurnRequest
 
 ```typescript
-/** Request body for `POST /session/:id`. */
+/** Request body for `POST /sessions/:id/turns`. */
 interface SessionTurnRequest {
   /** Session-level agent overrides. Agent name cannot be changed. Options merged by key. */
   agent?: Omit<AgentConfig, "name">;
@@ -288,11 +286,6 @@ interface ToolCallEvent {
   toolCallId: string;
   name: string;
   input: Record<string, unknown>;
-}
-
-interface SessionStartEvent {
-  event: "session_start";
-  sessionId: string;
 }
 
 interface TurnStartEvent {
@@ -336,7 +329,6 @@ interface TurnStopEvent {
 
 /** SSE event data for `stream: "delta"` and `stream: "message"` responses. */
 type SSEEvent =
-  | SessionStartEvent // PUT /session only
   | TurnStartEvent
   | TextDeltaEvent // delta mode only
   | ThinkingDeltaEvent // delta mode only
