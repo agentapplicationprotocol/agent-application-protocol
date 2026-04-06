@@ -24,7 +24,7 @@ Auth is optional on `GET /meta` — servers may choose to expose it publicly for
 
 ## GET /meta
 
-Returns the protocol version and the list of agents available on this server.
+Returns the protocol version and the list of agents available on this server. The current protocol version is **3**.
 
 ### Response
 
@@ -90,6 +90,10 @@ Returns the protocol version and the list of agents available on this server.
   ]
 }
 ```
+
+**Response fields:**
+
+- `version` — the AAP protocol version implemented by this server. The current protocol version is `3`.
 
 **Agent fields:**
 
