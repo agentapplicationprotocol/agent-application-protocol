@@ -51,10 +51,10 @@ Communication uses HTTP with Server-Sent Events (SSE) for streaming responses. T
 
 ## Why AAP
 
-Today, agents are tightly coupled to the applications that host them. AAP separates the two:
+Today, agents are tightly coupled to the applications that host them. AAP separates the two — much like microservices decoupled backend components:
 
-- **Agent builders** can focus on building capable, general-purpose agents — remote, multi-tenant, usage-billed — without knowing anything about the application.
-- **Application builders** can focus on domain knowledge and user experience, plugging in any compatible agent without managing agent loops and context window.
+- **Agent builders** can focus on building capable, general-purpose agents — remote, multi-tenant, usage-billed — without knowing anything about the application. They can use any agent framework and language they prefer (e.g. Vercel AI SDK, LangChain, Strands Agents).
+- **Application builders** can focus on domain knowledge and user experience, plugging in any compatible agent without managing agent loops and context windows. They can build in their native environment and language (e.g. Godot/GDScript, Blender/Python, professional content creation software).
 - **Both sides** retain full privacy over their own implementation details — agents keep their internal logic, memory, and model routing confidential; applications keep their business logic and user data private.
 
 This separation enables a marketplace of interoperable agents and applications.
