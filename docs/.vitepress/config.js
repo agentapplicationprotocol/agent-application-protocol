@@ -10,24 +10,44 @@ export default withMermaid(
     themeConfig: {
       outline: [2, 3],
       nav: [
-        { text: "Overview", link: "/overview" },
-        {
-          text: "TypeScript",
-          link: "https://github.com/agentapplicationprotocol/typescript-sdk",
-        },
         {
           text: "Playground",
           link: "https://agentapplicationprotocol.github.io/playground/",
         },
       ],
       sidebar: [
-        { text: "Overview", link: "/overview" },
-        { text: "Endpoints", link: "/endpoints" },
-        { text: "Response", link: "/response" },
-        { text: "Tool Call", link: "/tool-call" },
-        { text: "History", link: "/history" },
-        { text: "Privacy", link: "/privacy" },
-        { text: "Schema", link: "/schema" },
+        {
+          text: "Get Started",
+          items: [
+            { text: "Overview", link: "/overview" },
+            { text: "Agents", link: "/agents" },
+            { text: "Applications", link: "/applications" },
+          ],
+        },
+        {
+          text: "Protocol",
+          items: [
+            { text: "Endpoints", link: "/endpoints" },
+            { text: "Response", link: "/response" },
+            { text: "Tool Call", link: "/tool-call" },
+            { text: "History", link: "/history" },
+            { text: "Privacy", link: "/privacy" },
+            { text: "Schema", link: "/schema" },
+          ],
+        },
+        {
+          text: "Resources",
+          items: [
+            {
+              text: "TypeScript SDK",
+              link: "https://github.com/agentapplicationprotocol/typescript-sdk",
+            },
+            {
+              text: "GitHub",
+              link: "https://github.com/agentapplicationprotocol/agent-application-protocol",
+            },
+          ],
+        },
       ],
       socialLinks: [
         {
