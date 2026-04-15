@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Overview of the Agent Application Protocol (AAP) — architecture, core concepts, and how applications and agents communicate over HTTP.
+  - - meta
+    - property: og:title
+      content: Overview — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Overview of the Agent Application Protocol (AAP) — architecture, core concepts, and how applications and agents communicate over HTTP.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/overview
+  - - meta
+    - name: twitter:title
+      content: Overview — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Overview of the Agent Application Protocol (AAP) — architecture, core concepts, and how applications and agents communicate over HTTP.
+---
+
 # Agent Application Protocol (∀/A)
 
 A protocol for connecting any application to any agent.

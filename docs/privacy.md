@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Agent Application Protocol (AAP) privacy model — how agents keep implementation details confidential, including context engineering, memory, and guardrails.
+  - - meta
+    - property: og:title
+      content: Privacy — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Agent Application Protocol (AAP) privacy model — how agents keep implementation details confidential, including context engineering, memory, and guardrails.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/privacy
+  - - meta
+    - name: twitter:title
+      content: Privacy — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Agent Application Protocol (AAP) privacy model — how agents keep implementation details confidential, including context engineering, memory, and guardrails.
+---
+
 # Privacy
 
 ## Agent Privacy

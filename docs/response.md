@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Agent Application Protocol (AAP) response format for turn requests — streaming SSE deltas, batch responses, tool calls, and stop reasons.
+  - - meta
+    - property: og:title
+      content: Response — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Agent Application Protocol (AAP) response format for turn requests — streaming SSE deltas, batch responses, tool calls, and stop reasons.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/response
+  - - meta
+    - name: twitter:title
+      content: Response — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Agent Application Protocol (AAP) response format for turn requests — streaming SSE deltas, batch responses, tool calls, and stop reasons.
+---
+
 # Response
 
 This page describes the response format for the turn request [`POST /sessions/{id}/turns`](./endpoints.md).

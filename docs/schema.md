@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Full Agent Application Protocol (AAP) schema reference — TypeScript interfaces for AgentConfig, Message, Tool, and all protocol types.
+  - - meta
+    - property: og:title
+      content: Schema — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Full Agent Application Protocol (AAP) schema reference — TypeScript interfaces for AgentConfig, Message, Tool, and all protocol types.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/schema
+  - - meta
+    - name: twitter:title
+      content: Schema — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Full Agent Application Protocol (AAP) schema reference — TypeScript interfaces for AgentConfig, Message, Tool, and all protocol types.
+---
+
 # Schema
 
 ## AgentConfig

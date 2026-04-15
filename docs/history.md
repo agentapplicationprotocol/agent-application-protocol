@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: How Agent Application Protocol (AAP) manages conversation history — server-side compaction, client-side persistence, and history capabilities.
+  - - meta
+    - property: og:title
+      content: History Management — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: How Agent Application Protocol (AAP) manages conversation history — server-side compaction, client-side persistence, and history capabilities.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/history
+  - - meta
+    - name: twitter:title
+      content: History Management — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: How Agent Application Protocol (AAP) manages conversation history — server-side compaction, client-side persistence, and history capabilities.
+---
+
 # History Management
 
 ## Server History

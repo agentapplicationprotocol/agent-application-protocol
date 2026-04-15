@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Agent Application Protocol (AAP) HTTP endpoints reference — session management, turn submission, history, and authentication.
+  - - meta
+    - property: og:title
+      content: Endpoints — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Agent Application Protocol (AAP) HTTP endpoints reference — session management, turn submission, history, and authentication.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/endpoints
+  - - meta
+    - name: twitter:title
+      content: Endpoints — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Agent Application Protocol (AAP) HTTP endpoints reference — session management, turn submission, history, and authentication.
+---
+
 # Endpoints
 
 Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All endpoints below are relative to that base URL.

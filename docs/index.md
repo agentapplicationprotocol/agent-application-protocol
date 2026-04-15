@@ -1,5 +1,24 @@
 ---
 layout: home
+head:
+  - - meta
+    - name: description
+      content: Agent Application Protocol (AAP) — a standard for connecting any application to any agent. Remote-first, agent as a service.
+  - - meta
+    - property: og:title
+      content: Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Agent Application Protocol (AAP) — a standard for connecting any application to any agent. Remote-first, agent as a service.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/
+  - - meta
+    - name: twitter:title
+      content: Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Agent Application Protocol (AAP) — a standard for connecting any application to any agent. Remote-first, agent as a service.
 
 hero:
   name: Agent Application Protocol

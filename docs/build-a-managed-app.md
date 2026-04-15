@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Tutorial — build a managed Agent Application Protocol (AAP) app where you control the agent. Your server proxies all requests for full control over filtering and routing.
+  - - meta
+    - property: og:title
+      content: Build a Managed Agent App — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Tutorial — build a managed Agent Application Protocol (AAP) app where you control the agent. Your server proxies all requests for full control over filtering and routing.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/build-a-managed-app
+  - - meta
+    - name: twitter:title
+      content: Build a Managed Agent App — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Tutorial — build a managed Agent Application Protocol (AAP) app where you control the agent. Your server proxies all requests for full control over filtering and routing.
+---
+
 # Build a Managed Agent App
 
 A managed agent app means your app controls which AAP agent to use — users don't configure the agent provider. You choose the agent, options, and tool configs; you pay for the AAP usage.

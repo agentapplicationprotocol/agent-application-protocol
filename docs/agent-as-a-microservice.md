@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Use Agent Application Protocol (AAP) agents as internal microservices — delegate reasoning and decision-making to agents over HTTP from any backend service.
+  - - meta
+    - property: og:title
+      content: Agent as a Microservice — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Use Agent Application Protocol (AAP) agents as internal microservices — delegate reasoning and decision-making to agents over HTTP from any backend service.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/agent-as-a-microservice
+  - - meta
+    - name: twitter:title
+      content: Agent as a Microservice — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Use Agent Application Protocol (AAP) agents as internal microservices — delegate reasoning and decision-making to agents over HTTP from any backend service.
+---
+
 # Agent as a Microservice
 
 AAP agents can be used as internal services within your own system — not just in user-facing apps. Any backend service can act as an AAP client and delegate reasoning or decision-making to an agent over HTTP.

@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: Tutorial — build an open Agent Application Protocol (AAP) app where users bring their own agent. No backend required, no provider lock-in.
+  - - meta
+    - property: og:title
+      content: Build an Open Agent App — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: Tutorial — build an open Agent Application Protocol (AAP) app where users bring their own agent. No backend required, no provider lock-in.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/build-an-open-app
+  - - meta
+    - name: twitter:title
+      content: Build an Open Agent App — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: Tutorial — build an open Agent Application Protocol (AAP) app where users bring their own agent. No backend required, no provider lock-in.
+---
+
 # Build an Open Agent App
 
 An open agent app lets users bring their own AAP agent — they configure the server URL and API key, and your app connects to whatever agent they choose. No provider lock-in, no backend required.

@@ -1,3 +1,25 @@
+---
+head:
+  - - meta
+    - name: description
+      content: How Agent Application Protocol (AAP) handles tool calls — client-side and server-side tool flows, permissions, and tool call resumption.
+  - - meta
+    - property: og:title
+      content: Tool Call — Agent Application Protocol
+  - - meta
+    - property: og:description
+      content: How Agent Application Protocol (AAP) handles tool calls — client-side and server-side tool flows, permissions, and tool call resumption.
+  - - meta
+    - property: og:url
+      content: https://agentapplicationprotocol.com/tool-call
+  - - meta
+    - name: twitter:title
+      content: Tool Call — Agent Application Protocol
+  - - meta
+    - name: twitter:description
+      content: How Agent Application Protocol (AAP) handles tool calls — client-side and server-side tool flows, permissions, and tool call resumption.
+---
+
 # Tool Call
 
 ## Tool Call Flow

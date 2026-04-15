@@ -6,7 +6,15 @@ export default withMermaid(
     title: "Agent Application Protocol",
     description: "A protocol for connecting any application to any agent.",
     cleanUrls: true,
-    head: [["link", { rel: "icon", href: "/favicon.png" }]],
+    sitemap: { hostname: "https://agentapplicationprotocol.com" },
+    head: [
+      ["link", { rel: "icon", href: "/favicon.png" }],
+      ["meta", { property: "og:type", content: "website" }],
+      ["meta", { property: "og:site_name", content: "Agent Application Protocol" }],
+      ["meta", { property: "og:image", content: "https://agentapplicationprotocol.com/logo.png" }],
+      ["meta", { name: "twitter:card", content: "summary_large_image" }],
+      ["meta", { name: "twitter:image", content: "https://agentapplicationprotocol.com/logo.png" }],
+    ],
     themeConfig: {
       outline: [2, 3],
       nav: [
