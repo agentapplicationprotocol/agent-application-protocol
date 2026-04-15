@@ -10,14 +10,33 @@ export default withMermaid(
     head: [
       ["link", { rel: "icon", href: "/favicon.png" }],
       ["meta", { property: "og:type", content: "website" }],
-      ["meta", { property: "og:site_name", content: "Agent Application Protocol" }],
-      ["meta", { property: "og:image", content: "https://agentapplicationprotocol.com/logo.png" }],
+      [
+        "meta",
+        { property: "og:site_name", content: "Agent Application Protocol" },
+      ],
+      [
+        "meta",
+        {
+          property: "og:image",
+          content: "https://agentapplicationprotocol.com/logo.png",
+        },
+      ],
       ["meta", { name: "twitter:card", content: "summary_large_image" }],
-      ["meta", { name: "twitter:image", content: "https://agentapplicationprotocol.com/logo.png" }],
+      [
+        "meta",
+        {
+          name: "twitter:image",
+          content: "https://agentapplicationprotocol.com/logo.png",
+        },
+      ],
     ],
     themeConfig: {
       outline: [2, 3],
       nav: [
+        {
+          text: "Agent Skills",
+          link: "https://github.com/agentapplicationprotocol/skills",
+        },
         {
           text: "Playground",
           link: "https://agentapplicationprotocol.github.io/playground/",
@@ -57,6 +76,14 @@ export default withMermaid(
         {
           text: "Resources",
           items: [
+            {
+              text: "Agent Skills",
+              link: "https://github.com/agentapplicationprotocol/skills",
+            },
+            {
+              text: "Playground",
+              link: "https://agentapplicationprotocol.github.io/playground/",
+            },
             {
               text: "TypeScript SDK",
               link: "https://github.com/agentapplicationprotocol/typescript-sdk",

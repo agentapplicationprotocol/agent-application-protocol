@@ -10,6 +10,7 @@ Learn more at https://agentapplicationprotocol.com.
 
 ## Resources
 
+- [Agent Skills](https://github.com/agentapplicationprotocol/skills)
 - [Schema](https://agentapplicationprotocol.com/schema)
 - [TypeScript SDK](https://github.com/agentapplicationprotocol/typescript-sdk)
 - [Web playground](https://agentapplicationprotocol.github.io/playground/)
