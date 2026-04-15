@@ -25,6 +25,17 @@ export default withMermaid(
           ],
         },
         {
+          text: "Tutorial",
+          items: [
+            { text: "Open Agent App", link: "/build-an-open-app" },
+            { text: "Managed Agent App", link: "/build-a-managed-app" },
+            {
+              text: "Agent as a Microservice",
+              link: "/agent-as-a-microservice",
+            },
+          ],
+        },
+        {
           text: "Protocol",
           items: [
             { text: "Endpoints", link: "/endpoints" },
