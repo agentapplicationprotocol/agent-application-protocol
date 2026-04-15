@@ -33,6 +33,6 @@
     "vitepress-plugin-mermaid": "^2.0.17"
   },
   "lint-staged": {
-    "*.{json,md}": "oxfmt"
+    "*.{json,md,ts,js,css,yml,yaml}": "oxfmt"
   }
 }
