@@ -8,12 +8,15 @@ export default withMermaid(
     cleanUrls: true,
     sitemap: { hostname: "https://agentapplicationprotocol.com" },
     head: [
+      ["script", { async: "", src: "https://www.googletagmanager.com/gtag/js?id=G-7TB9FDW0E0" }],
+      [
+        "script",
+        {},
+        "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-7TB9FDW0E0');",
+      ],
       ["link", { rel: "icon", href: "/favicon.png" }],
       ["meta", { property: "og:type", content: "website" }],
-      [
-        "meta",
-        { property: "og:site_name", content: "Agent Application Protocol" },
-      ],
+      ["meta", { property: "og:site_name", content: "Agent Application Protocol" }],
       [
         "meta",
         {
