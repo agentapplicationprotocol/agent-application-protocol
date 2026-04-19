@@ -48,7 +48,7 @@ Auth is optional on `GET /meta` — servers may choose to expose it publicly for
 
 Returns the protocol version and the list of agents available on this server. The current protocol version is **3**.
 
-### Response
+### Response `200 OK`
 
 ```json
 {
@@ -156,7 +156,7 @@ Returns a paginated list of sessions.
 
 - `after` — _(optional)_ pagination cursor. Pass the `next` value from the previous response to get the next page.
 
-### Response
+### Response `200 OK`
 
 ```json
 {
@@ -246,7 +246,7 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
 - `name` — server tool name as declared in `/meta`.
 - `trust` — _(optional)_ if `true`, the server may invoke this tool without requesting client permission. Defaults to `false`.
 
-### Response
+### Response `201 Created`
 
 ```json
 { "sessionId": "sess_abc123" }
@@ -256,7 +256,7 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
 
 Returns the session object for the given session ID.
 
-### Response
+### Response `200 OK`
 
 ```json
 {
@@ -307,7 +307,7 @@ Returns the conversation history for the given session. Only available if the ag
 
 - `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`. If the requested type is not supported by the agent (i.e. not declared in `capabilities.history`), the server returns `404 Not Found`.
 
-### Response
+### Response `200 OK`
 
 ```json
 {
@@ -361,3 +361,7 @@ Send a new user turn or tool calling results to an existing session. The server 
 - `stream` — _(optional)_ response mode. See [Response Modes](/response).
 - `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
 - `tools` — _(optional)_ client-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
+
+### Response `200 OK`
+
+See [Response Modes](/response) for the response body shape.

@@ -48,7 +48,7 @@ Authorization: Bearer <api-key>
 
 返回协议版本和此服务器上可用的 Agent 列表。当前协议版本为 **3**。
 
-### 响应
+### 响应 `200 OK`
 
 ```json
 {
@@ -156,7 +156,7 @@ Authorization: Bearer <api-key>
 
 - `after` —— _（可选）_ 分页游标。传入上一响应的 `next` 值以获取下一页。
 
-### 响应
+### 响应 `200 OK`
 
 ```json
 {
@@ -246,7 +246,7 @@ Authorization: Bearer <api-key>
 - `name` —— `/meta` 中声明的服务端工具名称。
 - `trust` —— _（可选）_ 若为 `true`，服务器可以在不请求客户端权限的情况下调用此工具。默认为 `false`。
 
-### 响应
+### 响应 `201 Created`
 
 ```json
 { "sessionId": "sess_abc123" }
@@ -256,7 +256,7 @@ Authorization: Bearer <api-key>
 
 返回给定会话 ID 的会话对象。
 
-### 响应
+### 响应 `200 OK`
 
 ```json
 {
@@ -307,7 +307,7 @@ Authorization: Bearer <api-key>
 
 - `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。若请求的类型不被 Agent 支持（即未在 `capabilities.history` 中声明），服务器返回 `404 Not Found`。
 
-### 响应
+### 响应 `200 OK`
 
 ```json
 {
@@ -361,3 +361,7 @@ Authorization: Bearer <api-key>
 - `stream` —— _（可选）_ 响应模式。见[响应模式](/zh/response)。
 - `messages` —— _（必填）_ 要追加的新轮次。通常是单条 `user` 消息，但在 `tool_use` 停止后重新提交时也可以是工具结果或工具权限。
 - `tools` —— _（可选）_ 客户端工具。覆盖会话创建时声明的工具。服务器必须在会话生命周期内持久化这些覆盖。
+
+### 响应 `200 OK`
+
+响应体格式见[响应模式](/zh/response)。
