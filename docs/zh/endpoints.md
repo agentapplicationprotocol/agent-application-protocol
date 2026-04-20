@@ -305,7 +305,7 @@ Authorization: Bearer <api-key>
 
 ### 查询参数
 
-- `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。若请求的类型不被 Agent 支持（即未在 `capabilities.history` 中声明），服务器返回 `404 Not Found`。
+- `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。
 
 ### 响应 `200 OK`
 
@@ -320,6 +320,10 @@ Authorization: Bearer <api-key>
 **字段：**
 
 - `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
+
+### 响应 `404 Not Found`
+
+当会话不存在，或请求的历史 `type` 不被 Agent 支持（即未在 `capabilities.history` 中声明）时返回。
 
 ## POST /sessions/:id/turns
 

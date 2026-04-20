@@ -305,7 +305,7 @@ Returns the conversation history for the given session. Only available if the ag
 
 ### Query Parameters
 
-- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`. If the requested type is not supported by the agent (i.e. not declared in `capabilities.history`), the server returns `404 Not Found`.
+- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
 
 ### Response `200 OK`
 
@@ -320,6 +320,10 @@ Returns the conversation history for the given session. Only available if the ag
 **Fields:**
 
 - `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
+
+### Response `404 Not Found`
+
+Returned when the session does not exist, or when the requested history `type` is not supported by the agent (i.e. not declared in `capabilities.history`).
 
 ## POST /sessions/:id/turns
 
