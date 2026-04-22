@@ -291,13 +291,21 @@ Returns the session object for the given session ID.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — client-side tools declared for this session.
 
+### Response `404 Not Found`
+
+Returned when the session does not exist.
+
 ## DELETE /sessions/:id
 
 Deletes a session and its associated history.
 
-### Response
+### Response `204 No Content`
 
-`204 No Content`
+Returned on successful deletion.
+
+### Response `404 Not Found`
+
+Returned when the session does not exist.
 
 ## GET /sessions/:id/history
 
@@ -369,3 +377,7 @@ Send a new user turn or tool calling results to an existing session. The server 
 ### Response `200 OK`
 
 See [Response Modes](/response) for the response body shape.
+
+### Response `404 Not Found`
+
+Returned when the session does not exist.

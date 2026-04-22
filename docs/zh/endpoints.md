@@ -291,13 +291,21 @@ Authorization: Bearer <api-key>
 - `agent` —— 此会话的 Agent 配置。`"secret"` 类型的 `agent.options` 不得以明文返回；服务器应返回不透明占位符（如 `"***"`）。
 - `tools` —— 为此会话声明的客户端工具。
 
+### 响应 `404 Not Found`
+
+当会话不存在时返回。
+
 ## DELETE /sessions/:id
 
 删除会话及其关联历史。
 
-### 响应
+### 响应 `204 No Content`
 
-`204 No Content`
+删除成功时返回。
+
+### 响应 `404 Not Found`
+
+当会话不存在时返回。
 
 ## GET /sessions/:id/history
 
@@ -369,3 +377,7 @@ Authorization: Bearer <api-key>
 ### 响应 `200 OK`
 
 响应体格式见[响应模式](/zh/response)。
+
+### 响应 `404 Not Found`
+
+当会话不存在时返回。
