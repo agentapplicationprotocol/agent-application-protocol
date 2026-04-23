@@ -25,4 +25,4 @@ head:
 兼容 AAP 的 Agent 列表。[欢迎贡献！](https://github.com/agentapplicationprotocol/agent-application-protocol)
 
 - [AAP Agent Hub](https://hub.agentapplicationprotocol.com/)（开发中）
-- [TypeScript 示例 Agent](https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/src/examples)
+- [TypeScript 示例 Agent](https://github.com/agentapplicationprotocol/typescript-sdk/tree/main/packages/server/examples)
