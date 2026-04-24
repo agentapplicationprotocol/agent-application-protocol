@@ -28,7 +28,8 @@ hero:
     to any agent.
   tagline: Remote-first, agent as a service.
   image:
-    src: /application-aap-agent.svg
+    light: /application-aap-agent.svg
+    dark: /application-aap-agent-dark.svg
     alt: Agent Application Protocol
   actions:
     - theme: brand

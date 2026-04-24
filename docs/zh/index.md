@@ -27,7 +27,8 @@ hero:
     与任意 Agent。
   tagline: 远程优先，Agent 即服务。
   image:
-    src: /application-aap-agent.svg
+    light: /application-aap-agent.svg
+    dark: /application-aap-agent-dark.svg
     alt: Agent Application Protocol
   actions:
     - theme: brand
