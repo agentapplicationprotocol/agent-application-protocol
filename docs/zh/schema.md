@@ -22,6 +22,8 @@ head:
 
 # Schema
 
+以下 Schema 以 [TypeScript SDK](https://github.com/agentapplicationprotocol/typescript-sdk) 作为参考实现，使用 TypeScript 接口描述协议的数据结构。类型名称仅供参考，实现时无需与此保持一致。
+
 ## Agent
 
 ```typescript
@@ -162,6 +164,12 @@ interface ToolMessage extends ToolResult {
 /** 可以出现在对话历史中的消息。 */
 type HistoryMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
+/** Agent 生成的消息。 */
+type AgentMessage = AssistantMessage | ToolMessage;
+
+/** 应用发送给 Agent 的消息。 */
+type ApplicationMessage = UserMessage | ToolMessage | ToolPermissionMessage;
+
 /** 授予或拒绝服务器代表客户端调用工具的权限。 */
 interface ToolPermissionMessage {
   role: "tool_permission";
@@ -193,7 +201,7 @@ interface PostSessionTurnRequest {
   /** 响应模式。默认为 `"none"`。 */
   stream?: StreamMode;
   /** 单条用户消息，或工具结果和工具权限的混合列表。 */
-  messages: (UserMessage | ToolMessage | ToolPermissionMessage)[];
+  messages: ApplicationMessage[];
   /** 客户端工具。覆盖会话创建时声明的工具。 */
   tools?: ToolSpec[];
 }
@@ -205,7 +213,7 @@ interface PostSessionTurnRequest {
 /** 非流式（`stream: "none"`）请求的 JSON 响应体。 */
 interface PostSessionTurnResponse {
   stopReason: StopReason;
-  messages: HistoryMessage[];
+  messages: AgentMessage[];
 }
 
 /** `POST /sessions` 的响应体。 */
