@@ -1,5 +1,5 @@
 import { defineConfig } from "vitepress";
-import { withMermaid } from "vitepress-plugin-mermaid";
+import { withMermaid } from "@discretetom/vitepress-plugin-mermaid";
 
 const enNav = [
   {
@@ -194,6 +194,9 @@ export default withMermaid(
           ],
         },
       },
+    },
+    mermaidPlugin: {
+      output: "img",
     },
   }),
 );
