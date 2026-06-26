@@ -79,7 +79,7 @@ sequenceDiagram
 
 ## 第二步：获取可用 Agent
 
-调用 `GET /meta` 发现服务器提供的 Agent：
+调用 [`GET /meta`](/zh/endpoints#get-meta) 发现服务器提供的 Agent：
 
 ```http
 GET /meta
@@ -139,7 +139,7 @@ Location: /sessions/sess_abc123
 
 ## 第五步：发送轮次并处理响应
 
-将每条用户消息发送到会话。若要更改 Agent 选项、服务端工具配置或客户端工具，请先使用 `PATCH /sessions/:id` 更新会话；轮次请求只追加消息。
+将每条用户消息发送到会话。若要更改 Agent 选项、服务端工具配置或客户端工具，请先使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话；轮次请求只追加消息。
 
 ```http
 POST /sessions/sess_abc123/turns
@@ -162,7 +162,7 @@ Content-Type: application/json
 
 - 显示工具名称和描述。
 - 使用工具的输入 schema 展示每个参数名称、值和描述，让用户了解将要执行的内容。
-- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 `PATCH /sessions/:id` 更新会话的服务端工具设置。
+- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的服务端工具设置。
 
 用户响应所有提示后，将所有工具结果和权限汇总到单个轮次请求中提交。
 
@@ -200,7 +200,7 @@ Authorization: Bearer <api-key>
 
 成功返回 `204 No Content`。
 
-**获取会话历史** —— 获取会话的对话历史（仅当 Agent 在 `GET /meta` 中声明了历史能力时可用）：
+**获取会话历史** —— 获取会话的对话历史（仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用）：
 
 ```http
 GET /sessions/sess_abc123/history?type=compacted

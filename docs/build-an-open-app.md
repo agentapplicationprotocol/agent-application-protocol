@@ -79,7 +79,7 @@ Show a settings form with two fields:
 
 ## Step 2: Fetch available agents
 
-Call `GET /meta` to discover what agents the server offers:
+Call [`GET /meta`](/endpoints#get-meta) to discover what agents the server offers:
 
 ```http
 GET /meta
@@ -139,7 +139,7 @@ Client-side tools declared here are persisted for the session.
 
 ## Step 5: Send turns and handle responses
 
-Send each user message to the session. To change agent options, server tool configs, or client-side tools, update the session first with `PATCH /sessions/:id`; turn requests only append messages.
+Send each user message to the session. To change agent options, server tool configs, or client-side tools, update the session first with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id); turn requests only append messages.
 
 ```http
 POST /sessions/sess_abc123/turns
@@ -162,7 +162,7 @@ After receiving a response, the AAP SDK parses it and extracts any unresolved to
 
 - Show the tool name and description.
 - Use the tool's input schema to display each parameter name, its value, and description so the user understands what will run.
-- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with `PATCH /sessions/:id`.
+- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
 
 Once the user responds to all prompts, gather every tool result and permission into a single turn request and submit it.
 
@@ -200,7 +200,7 @@ Authorization: Bearer <api-key>
 
 Returns `204 No Content` on success.
 
-**Get session history** — retrieve the conversation history for a session (only available if the agent declared history capabilities in `GET /meta`):
+**Get session history** — retrieve the conversation history for a session (only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta)):
 
 ```http
 GET /sessions/sess_abc123/history?type=compacted

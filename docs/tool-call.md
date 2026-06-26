@@ -72,11 +72,11 @@ sequenceDiagram
 
 ## Unexposed server-side tools
 
-The server may have internal tools that are not declared in `GET /meta`. The server may still stream `tool_call` and `tool_result` events for these tools so the client can observe them. Clients should be prepared to handle unknown tool names — either displaying them or discarding them.
+The server may have internal tools that are not declared in [`GET /meta`](/endpoints#get-meta). The server may still stream `tool_call` and `tool_result` events for these tools so the client can observe them. Clients should be prepared to handle unknown tool names — either displaying them or discarding them.
 
 ## Parallel tool calls
 
-The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute client-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single `POST /sessions/:id/turns`. Trusted server-side tools are handled inline by the server and do not require client action.
+The server may emit multiple `tool_call` events before `turn_stop`. The client should handle all of them — execute client-side tools and respond to untrusted server tool permissions — then re-submit all results and permissions together in a single [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns). Trusted server-side tools are handled inline by the server and do not require client action.
 
 Example with two client-side tools, one trusted server tool, and one untrusted server tool — all called in parallel:
 
@@ -121,16 +121,16 @@ When the client receives `turn_stop` with `stopReason: "tool_use"`:
 2. For each tool call, determine whether it is a client-side tool (by matching the name against tools declared in the request) or a server-side tool:
    - Client-side tool: optionally prompt the user whether to proceed, then execute it and collect the result.
    - Server-side tool: prompt the user or apply policy to grant or deny permission.
-3. Submit all results and permissions together in a single `POST /sessions/:id/turns`.
+3. Submit all results and permissions together in a single [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns).
 
 ## Tool call resumption
 
-If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id` to retrieve `active` and `pending` and resume from where it left off:
+If a client has no in-memory state (e.g. after a restart or recovery), it can call [`GET /sessions/:id`](/endpoints#get-sessions-id) to retrieve `active` and `pending` and resume from where it left off:
 
-1. Fetch the session via `GET /sessions/:id`.
+1. Fetch the session via [`GET /sessions/:id`](/endpoints#get-sessions-id).
 2. If `active` is `true`, a turn is still running. Wait or poll before submitting another turn.
 3. If `pending` is non-empty, the previous turn ended with `stopReason: "tool_use"` and requires client action.
 4. Apply the same client-side resolving logic: match each tool name against the configured tools to determine whether to execute a client-side tool and submit a `tool` result, or submit a `tool_permission` for an untrusted server-side tool.
-5. Submit all results and permissions via `POST /sessions/:id/turns` to continue.
+5. Submit all results and permissions via [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) to continue.
 
-Clients may still inspect `GET /sessions/:id/history` for display, auditing, or fallback recovery.
+Clients may still inspect [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) for display, auditing, or fallback recovery.

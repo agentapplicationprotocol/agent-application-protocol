@@ -72,11 +72,11 @@ sequenceDiagram
 
 ## 未暴露的服务端工具
 
-服务器可能有未在 `GET /meta` 中声明的内部工具。服务器仍可以为这些工具流式传输 `tool_call` 和 `tool_result` 事件，让客户端可以观察它们。客户端应准备好处理未知工具名称 —— 显示或丢弃它们。
+服务器可能有未在 [`GET /meta`](/zh/endpoints#get-meta) 中声明的内部工具。服务器仍可以为这些工具流式传输 `tool_call` 和 `tool_result` 事件，让客户端可以观察它们。客户端应准备好处理未知工具名称 —— 显示或丢弃它们。
 
 ## 并行工具调用
 
-服务器可能在 `turn_stop` 前发出多个 `tool_call` 事件。客户端应处理所有事件 —— 执行客户端工具并响应不受信任服务端工具权限 —— 然后在单个 `POST /sessions/:id/turns` 中一起重新提交所有结果和权限。受信任的服务端工具由服务器内联处理，不需要客户端操作。
+服务器可能在 `turn_stop` 前发出多个 `tool_call` 事件。客户端应处理所有事件 —— 执行客户端工具并响应不受信任服务端工具权限 —— 然后在单个 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 中一起重新提交所有结果和权限。受信任的服务端工具由服务器内联处理，不需要客户端操作。
 
 示例：两个客户端工具、一个受信任服务端工具和一个不受信任服务端工具 —— 全部并行调用：
 
@@ -121,16 +121,16 @@ LLM 发出工具调用后，服务器解析每个调用：
 2. 对每个工具调用，通过将名称与请求中声明的工具匹配来判断是客户端工具还是服务端工具：
    - 客户端工具：可选地提示用户是否继续，然后执行并收集结果。
    - 服务端工具：提示用户或应用策略来授予或拒绝权限。
-3. 在单个 `POST /sessions/:id/turns` 中一起提交所有结果和权限。
+3. 在单个 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 中一起提交所有结果和权限。
 
 ## 工具调用恢复
 
-若客户端没有内存状态（如重启或恢复后），可以调用 `GET /sessions/:id` 获取 `active` 和 `pending` 并从中断处恢复：
+若客户端没有内存状态（如重启或恢复后），可以调用 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 获取 `active` 和 `pending` 并从中断处恢复：
 
-1. 通过 `GET /sessions/:id` 获取会话。
+1. 通过 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 获取会话。
 2. 若 `active` 为 `true`，表示仍有轮次正在运行。等待或轮询后再提交其他轮次。
 3. 若 `pending` 非空，则最后一次轮次以 `stopReason: "tool_use"` 结束，需要客户端操作。
 4. 应用相同的客户端解析逻辑：将每个工具名称与已配置工具匹配，判断是执行客户端工具并提交 `tool` 结果，还是为不受信任的服务端工具提交 `tool_permission`。
-5. 通过 `POST /sessions/:id/turns` 提交所有结果和权限以继续。
+5. 通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 提交所有结果和权限以继续。
 
-客户端仍可查看 `GET /sessions/:id/history` 用于展示、审计或兜底恢复。
+客户端仍可查看 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 用于展示、审计或兜底恢复。

@@ -24,13 +24,13 @@ head:
 
 ## 服务端历史
 
-服务器拥有每个会话的对话历史。客户端永远不会重新发送之前的消息 —— 它只通过 `POST /sessions/:id/turns` 发送新轮次。
+服务器拥有每个会话的对话历史。客户端永远不会重新发送之前的消息 —— 它只通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 发送新轮次。
 
-服务器必须至少持久化**压缩历史**：足以让 LLM 连贯继续对话的表示。压缩策略因 Agent 而异 —— 服务器可以根据需要总结、截断或丢弃内容（如旧的工具结果）。客户端不会收到压缩通知。Agent 可以选择不在 `GET /sessions/:id/history` 中暴露压缩历史以保护专有压缩逻辑，或返回仅适合客户端显示的删减版本。
+服务器必须至少持久化**压缩历史**：足以让 LLM 连贯继续对话的表示。压缩策略因 Agent 而异 —— 服务器可以根据需要总结、截断或丢弃内容（如旧的工具结果）。客户端不会收到压缩通知。Agent 可以选择不在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中暴露压缩历史以保护专有压缩逻辑，或返回仅适合客户端显示的删减版本。
 
 服务器还可以额外持久化**完整未压缩历史**，用于审计跟踪、历史回放或面向用户的对话显示等场景。这是可选的，由实现定义。若提供，完整历史必须精确且未删减 —— 与压缩历史不同，不得省略或修改任何内容。
 
-每个 Agent 在 `GET /meta` 中通过 `capabilities.history` 声明其历史持久化能力。历史通过 `GET /sessions/:id/history` 获取，必须是兼容 `Message[]` 的数组。返回的历史可能包含未解决的工具调用（即没有匹配工具结果的工具调用）。恢复时，客户端应优先使用 `GET /sessions/:id` 返回的 `active` 和 `pending`；参见[工具调用恢复](/zh/tool-call#工具调用恢复)。
+每个 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中通过 `capabilities.history` 声明其历史持久化能力。历史通过 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 获取，必须是兼容 `Message[]` 的数组。返回的历史可能包含未解决的工具调用（即没有匹配工具结果的工具调用）。恢复时，客户端应优先使用 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 返回的 `active` 和 `pending`；参见[工具调用恢复](/zh/tool-call#工具调用恢复)。
 
 ## 客户端历史
 

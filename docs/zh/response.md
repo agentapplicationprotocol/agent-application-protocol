@@ -22,7 +22,7 @@ head:
 
 # 响应
 
-本页描述轮次请求 [`POST /sessions/{id}/turns`](./endpoints.md) 的响应格式。
+本页描述轮次请求 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 的响应格式。
 
 ## 响应模式
 
@@ -44,7 +44,7 @@ head:
 
 ### `turn_start`
 
-标记 Agent 响应的开始。这是每个 `POST /sessions/:id/turns` 流中的第一个事件。
+标记 Agent 响应的开始。这是每个 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 流中的第一个事件。
 
 ```
 event: turn_start
@@ -96,15 +96,15 @@ event: tool_call
 data: {"toolCallId": "call_001", "name": "get_weather", "input": {"location": "Tokyo"}}
 ```
 
-对于**客户端工具**，客户端执行工具并在后续 `POST /sessions/:id/turns` 请求中提交结果。
+对于**客户端工具**，客户端执行工具并在后续 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 请求中提交结果。
 
 对于 `trust: true` 的**服务端工具**，服务器内联调用工具并发出带结果的 `tool_result` 事件 —— 无需客户端往返。Agent 继续流式传输而不停止。
 
-对于 `trust: false` 的**服务端工具**，服务器停止，客户端在后续 `POST /sessions/:id/turns` 请求中为每个不受信任的工具调用提交权限决定。Agent 无论如何都会继续 —— 若被拒绝，LLM 会被告知工具未被允许。
+对于 `trust: false` 的**服务端工具**，服务器停止，客户端在后续 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 请求中为每个不受信任的工具调用提交权限决定。Agent 无论如何都会继续 —— 若被拒绝，LLM 会被告知工具未被允许。
 
 只有当至少有一个客户端工具调用或一个需要客户端操作的不受信任服务端工具调用时，Agent 才会以 `stopReason: "tool_use"` 发出 `turn_stop`。若所有工具调用都是受信任的服务端工具，Agent 内联处理它们并继续而不停止。
 
-客户端必须收集所有客户端工具结果和不受信任服务端工具权限，并在单个后续 `POST /sessions/:id/turns` 请求中一起提交。
+客户端必须收集所有客户端工具结果和不受信任服务端工具权限，并在单个后续 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 请求中一起提交。
 
 工具名称在单个请求中的应用工具和 Agent 工具之间必须唯一。客户端通过将名称与请求中声明的工具匹配来识别工具调用是应用侧还是服务端。
 
@@ -233,7 +233,7 @@ interface AgentResponse {
 ### 工具结果消息
 
 - **服务端工具**：Agent 执行工具，将结果存储在历史中，并包含在返回的消息中。
-- **客户端工具**：客户端执行工具并通过 `POST /sessions/:id/turns` 提交结果。
+- **客户端工具**：客户端执行工具并通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 提交结果。
 
 ```json
 {
@@ -247,7 +247,7 @@ interface AgentResponse {
 
 ### 工具权限消息
 
-用于通过 `POST /sessions/:id/turns` 为不受信任的服务端工具调用提交权限决定。Agent 继续并告知 LLM 决定。这些消息永远不会存储在会话历史中。
+用于通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 为不受信任的服务端工具调用提交权限决定。Agent 继续并告知 LLM 决定。这些消息永远不会存储在会话历史中。
 
 当 `granted: true` 时，Agent 执行工具并将工具结果存储在历史中。当 `granted: false` 时，Agent 在历史中存储带拒绝描述的 `tool` 消息（如 `"工具调用被拒绝"`，或若提供了 `reason` 则为 `"工具调用被拒绝：<reason>"`）以告知 LLM。客户端可以包含可选的 `reason` 字符串，Agent 会将其转达给 LLM。
 

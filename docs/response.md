@@ -22,7 +22,7 @@ head:
 
 # Response
 
-This page describes the response format for the turn request [`POST /sessions/{id}/turns`](./endpoints.md).
+This page describes the response format for the turn request [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns).
 
 ## Response Modes
 
@@ -44,7 +44,7 @@ Each event is a JSON object on the `data:` field.
 
 ### `turn_start`
 
-Marks the beginning of the agent's response. This is the first event in every `POST /sessions/:id/turns` stream.
+Marks the beginning of the agent's response. This is the first event in every [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) stream.
 
 ```
 event: turn_start
@@ -96,15 +96,15 @@ event: tool_call
 data: {"toolCallId": "call_001", "name": "get_weather", "input": {"location": "Tokyo"}}
 ```
 
-For **client-side tools**, the client executes the tool and submits the results in a subsequent `POST /sessions/:id/turns` request.
+For **client-side tools**, the client executes the tool and submits the results in a subsequent [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) request.
 
 For **server-side tools** where `trust: true`, the server invokes the tool inline and emits a `tool_result` event with the result — no client round-trip needed. The agent continues streaming without stopping.
 
-For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision for each untrusted tool call in a subsequent `POST /sessions/:id/turns` request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
+For **server-side tools** where `trust: false`, the server stops and the client submits a permission decision for each untrusted tool call in a subsequent [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) request. The agent continues regardless — if denied, the LLM is informed the tool was not permitted.
 
 The agent only emits `turn_stop` with `stopReason: "tool_use"` if there is at least one client-side tool call or one untrusted server-side tool call that requires client action. If all tool calls are trusted server-side tools, the agent handles them inline and continues without stopping.
 
-The client must collect all client-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent `POST /sessions/:id/turns` request.
+The client must collect all client-side tool results and untrusted server-side tool permissions and submit them together in a single subsequent [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) request.
 
 Tool names must be unique across application tools and agent tools in a single request. The client identifies whether a tool call is application-side or server-side by matching the name against its request.
 
@@ -233,7 +233,7 @@ interface AgentResponse {
 ### Tool result message
 
 - **Server-side tool**: the agent executes the tool, stores the result in history, and includes it in the returned messages.
-- **client-side tool**: the client executes the tool and submits the result via `POST /sessions/:id/turns`.
+- **client-side tool**: the client executes the tool and submits the result via [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns).
 
 ```json
 {
@@ -247,7 +247,7 @@ interface AgentResponse {
 
 ### Tool permission message
 
-Used to submit a permission decision for an untrusted server-side tool call via `POST /sessions/:id/turns`. The agent continues and informs the LLM of the decision. These messages are never stored in session history.
+Used to submit a permission decision for an untrusted server-side tool call via [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns). The agent continues and informs the LLM of the decision. These messages are never stored in session history.
 
 When `granted: true`, the agent executes the tool and stores the tool result in history. When `granted: false`, the agent stores a `tool` message in history with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM. The client may include an optional `reason` string that the agent will relay to the LLM.
 

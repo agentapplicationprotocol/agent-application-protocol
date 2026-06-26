@@ -89,7 +89,7 @@ sequenceDiagram
 
 ## 第三步：通过你的服务器创建会话
 
-客户端请求你的服务器创建会话。你的服务器使用长期有效的 AAP API 密钥调用 AAP Agent 的 `POST /sessions`，携带预配置的 Agent 选项和工具配置。AAP Agent 在 `Location` 中返回会话 URL；你的服务器可以提取会话 ID，并只将该 ID 返回给客户端。AAP 密钥永远不离开你的服务器。
+客户端请求你的服务器创建会话。你的服务器使用长期有效的 AAP API 密钥调用 AAP Agent 的 [`POST /sessions`](/zh/endpoints#post-sessions)，携带预配置的 Agent 选项和工具配置。AAP Agent 在 `Location` 中返回会话 URL；你的服务器可以提取会话 ID，并只将该 ID 返回给客户端。AAP 密钥永远不离开你的服务器。
 
 ## 第四步：通过你的服务器发送轮次
 
@@ -112,7 +112,7 @@ sequenceDiagram
 
 - 显示工具名称和描述。
 - 使用工具的输入 schema 展示每个参数名称、值和描述。
-- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 `PATCH /sessions/:id` 更新会话的服务端工具设置。
+- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的服务端工具设置。
 
 将所有结果和权限汇总到单个轮次请求中，通过你的服务器代理提交。
 

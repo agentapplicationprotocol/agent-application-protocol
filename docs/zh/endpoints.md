@@ -43,7 +43,7 @@ head:
 Authorization: Bearer <api-key>
 ```
 
-`GET /meta` 上的认证是可选的 —— 服务器可以选择公开暴露它以供能力发现。
+[`GET /meta`](/zh/endpoints#get-meta) 上的认证是可选的 —— 服务器可以选择公开暴露它以供能力发现。
 
 ## GET /meta
 
@@ -127,9 +127,9 @@ Authorization: Bearer <api-key>
 - `tools` —— Agent 选择暴露给客户端配置的服务端工具（启用、禁用或授予信任）。Agent 也可能有未暴露的工具，这些工具内联运行无需客户端参与，因此这是 Agent 实际工具的子集。当 `tool_call` 或 `tool_result` 事件引用未知工具名称时，客户端应优雅处理。
 - `options` —— 客户端可以在每次请求中设置的可配置选项。
 - `capabilities` —— _（可选）_ 声明 Agent 支持的能力。可以省略各个能力字段，客户端应将缺失字段视为不支持。
-  - `history` —— 声明 Agent 可以在 `GET /sessions/:id/history` 中返回的历史类型：
-    - `history.compacted` —— 若存在，服务器可以在 `GET /sessions/:id/history` 中返回压缩历史。
-    - `history.full` —— 若存在，服务器可以在 `GET /sessions/:id/history` 中返回完整未压缩历史。
+  - `history` —— 声明 Agent 可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回的历史类型：
+    - `history.compacted` —— 若存在，服务器可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回压缩历史。
+    - `history.full` —— 若存在，服务器可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回完整未压缩历史。
   - `stream` —— 声明 Agent 支持的流模式。若省略，客户端应假设只支持 `"none"`。
     - `stream.delta` —— 若存在，Agent 支持 `"delta"` 流式传输。
     - `stream.message` —— 若存在，Agent 支持 `"message"` 流式传输。
@@ -197,12 +197,12 @@ Authorization: Bearer <api-key>
 
 **字段：**
 
-- `sessions` —— 会话对象数组。每个对象与 `GET /sessions/:id` 的形状相同。
+- `sessions` —— 会话对象数组。每个对象与 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 的形状相同。
 - `next` —— _（可选）_ 不透明游标字符串，格式由服务器定义；作为 `after` 传入以获取下一页。无更多结果时不存在。
 
 ## POST /sessions
 
-创建新会话。不运行 Agent —— 使用 `POST /sessions/:id/turns` 发送第一条消息以运行 Agent。
+创建新会话。不运行 Agent —— 使用 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 发送第一条消息以运行 Agent。
 
 ### 请求体
 
@@ -261,7 +261,7 @@ Location: /sessions/sess_abc123
 
 ### 重试行为
 
-此端点不定义幂等键。若客户端在创建会话后丢失响应，应通过 `GET /sessions` 列出已知会话来恢复，然后继续使用匹配的会话，或删除废弃会话。
+此端点不定义幂等键。若客户端在创建会话后丢失响应，应通过 [`GET /sessions`](/zh/endpoints#get-sessions) 列出已知会话来恢复，然后继续使用匹配的会话，或删除废弃会话。
 
 ## GET /sessions/:id
 
@@ -301,7 +301,7 @@ Location: /sessions/sess_abc123
 **字段：**
 
 - `sessionId` —— 会话标识符。
-- `active` —— 此会话当前是否有正在运行的轮次。为 `true` 时，`PATCH /sessions/:id` 和 `POST /sessions/:id/turns` 返回 `409 Conflict`。
+- `active` —— 此会话当前是否有正在运行的轮次。为 `true` 时，[`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 和 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 返回 `409 Conflict`。
 - `agent` —— 此会话的 Agent 配置。`"secret"` 类型的 `agent.options` 不得以明文返回；服务器应返回不透明占位符（如 `"***"`）。
 - `tools` —— 为此会话声明的客户端工具。
 - `pending` —— 等待客户端操作的工具调用。工具名称在客户端工具和服务端工具之间唯一，因此客户端可以将工具名称与已配置工具匹配，判断每个调用需要提交 `tool` 结果还是 `tool_permission`。
@@ -349,7 +349,7 @@ Location: /sessions/sess_abc123
 
 ### 响应 `200 OK`
 
-返回更新后的会话对象，形状与 `GET /sessions/:id` 相同。
+返回更新后的会话对象，形状与 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 相同。
 
 ### 响应 `404 Not Found`
 
@@ -373,7 +373,7 @@ Location: /sessions/sess_abc123
 
 ## GET /sessions/:id/history
 
-返回给定会话的对话历史。仅当 Agent 在 `GET /meta` 中声明了历史能力时可用。
+返回给定会话的对话历史。仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用。
 
 ### 查询参数
 
@@ -446,4 +446,4 @@ Location: /sessions/sess_abc123
 
 ### 重试行为
 
-此端点不定义幂等键。若请求失败或连接中断，客户端应调用 `GET /sessions/:id` 检查 `active` 和 `pending`，并可调用 `GET /sessions/:id/history` 恢复展示或执行状态。
+此端点不定义幂等键。若请求失败或连接中断，客户端应调用 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 检查 `active` 和 `pending`，并可调用 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 恢复展示或执行状态。

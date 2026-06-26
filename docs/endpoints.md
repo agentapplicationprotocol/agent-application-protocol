@@ -43,7 +43,7 @@ All endpoints accept an API key via the `Authorization` header:
 Authorization: Bearer <api-key>
 ```
 
-Auth is optional on `GET /meta` — servers may choose to expose it publicly for capability discovery.
+Auth is optional on [`GET /meta`](/endpoints#get-meta) — servers may choose to expose it publicly for capability discovery.
 
 ## GET /meta
 
@@ -127,9 +127,9 @@ Returns the protocol version and the list of agents available on this server. Th
 - `tools` — server-side tools the agent chooses to expose to the client for configuration (enabling, disabling, or granting trust). Agents may also have unexposed tools that run inline without client involvement, so this is a subset of the agent's actual tools. When a `tool_call` or `tool_result` event references an unknown tool name, clients should handle it gracefully.
 - `options` — configurable options the client may set per request.
 - `capabilities` — _(optional)_ declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
-  - `history` — declares what history the agent can return in `GET /sessions/:id/history`:
-    - `history.compacted` — if present, the server can return compacted history in `GET /sessions/:id/history`.
-    - `history.full` — if present, the server can return full uncompacted history in `GET /sessions/:id/history`.
+  - `history` — declares what history the agent can return in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history):
+    - `history.compacted` — if present, the server can return compacted history in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history).
+    - `history.full` — if present, the server can return full uncompacted history in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history).
   - `stream` — declares which stream modes the agent supports. If omitted, clients should assume only `"none"` is supported.
     - `stream.delta` — if present, the agent supports `"delta"` streaming.
     - `stream.message` — if present, the agent supports `"message"` streaming.
@@ -197,12 +197,12 @@ Servers choose the page size. Clients should follow `next` cursors until `next` 
 
 **Fields:**
 
-- `sessions` — array of session objects. Each object has the same shape as `GET /sessions/:id`.
+- `sessions` — array of session objects. Each object has the same shape as [`GET /sessions/:id`](/endpoints#get-sessions-id).
 - `next` — _(optional)_ opaque cursor string whose format is defined by the server; pass as `after` to retrieve the next page. Absent when there are no more results.
 
 ## POST /sessions
 
-Creates a new session. Does not run the agent — use `POST /sessions/:id/turns` to send the first message.
+Creates a new session. Does not run the agent — use [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) to send the first message.
 
 ### Request Body
 
@@ -261,7 +261,7 @@ Location: /sessions/sess_abc123
 
 ### Retry Behavior
 
-This endpoint does not define an idempotency key. If a client loses the response after creating a session, it should recover by listing known sessions with `GET /sessions`, then continue with the matching session or delete abandoned sessions.
+This endpoint does not define an idempotency key. If a client loses the response after creating a session, it should recover by listing known sessions with [`GET /sessions`](/endpoints#get-sessions), then continue with the matching session or delete abandoned sessions.
 
 ## GET /sessions/:id
 
@@ -301,7 +301,7 @@ Returns the session object for the given session ID.
 **Fields:**
 
 - `sessionId` — the session identifier.
-- `active` — whether a turn is currently running for this session. When `true`, `PATCH /sessions/:id` and `POST /sessions/:id/turns` return `409 Conflict`.
+- `active` — whether a turn is currently running for this session. When `true`, [`PATCH /sessions/:id`](/endpoints#patch-sessions-id) and [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) return `409 Conflict`.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — client-side tools declared for this session.
 - `pending` — tool calls waiting for client action. Tool names are unique across client-side and server-side tools, so clients can determine whether each call requires a `tool` result or a `tool_permission` by matching the tool name against the configured tools.
@@ -349,7 +349,7 @@ Updates persisted session configuration. Use this endpoint to change server-side
 
 ### Response `200 OK`
 
-Returns the updated session object, with the same shape as `GET /sessions/:id`.
+Returns the updated session object, with the same shape as [`GET /sessions/:id`](/endpoints#get-sessions-id).
 
 ### Response `404 Not Found`
 
@@ -373,7 +373,7 @@ Returned when the session does not exist.
 
 ## GET /sessions/:id/history
 
-Returns the conversation history for the given session. Only available if the agent declared history capabilities in `GET /meta`.
+Returns the conversation history for the given session. Only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta).
 
 ### Query Parameters
 
@@ -446,4 +446,4 @@ Returned when the session already has an active turn.
 
 ### Retry Behavior
 
-This endpoint does not define an idempotency key. If a request fails or the connection drops, the client should recover by calling `GET /sessions/:id` to inspect `active` and `pending`, and may call `GET /sessions/:id/history` to restore display or execution state.
+This endpoint does not define an idempotency key. If a request fails or the connection drops, the client should recover by calling [`GET /sessions/:id`](/endpoints#get-sessions-id) to inspect `active` and `pending`, and may call [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) to restore display or execution state.
