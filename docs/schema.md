@@ -224,9 +224,20 @@ interface PostSessionsResponse {
 /** Response body for `GET /sessions/:id`. */
 type GetSessionResponse = SessionInfo;
 
+/** Resolved message range for `GET /sessions/:id/history`. */
+interface HistoryRange {
+  /** Resolved inclusive start index. */
+  start: number;
+  /** Resolved exclusive end index. */
+  end: number;
+  /** Total messages in the selected history before range slicing. */
+  total: number;
+}
+
 /** Response body for `GET /sessions/:id/history`. */
 interface GetSessionHistoryResponse {
   history: Partial<Record<HistoryType, HistoryMessage[]>>;
+  range: HistoryRange;
 }
 
 /** Response body for `GET /sessions`. */

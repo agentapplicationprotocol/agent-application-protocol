@@ -314,6 +314,10 @@ Returns the conversation history for the given session. Only available if the ag
 ### Query Parameters
 
 - `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
+- `start` — _(optional)_ zero-based start index, inclusive. Negative values count back from the end of the selected history.
+- `end` — _(optional)_ zero-based end index, exclusive. Negative values count back from the end of the selected history.
+
+If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to the selected history length. Servers should clamp out-of-range values to the available history. For example, `start=-50` returns the last 50 messages. Ranges apply to the selected history representation after any compaction, so `type=compacted&start=-20` returns the last 20 messages from the compacted history.
 
 ### Response `200 OK`
 
@@ -321,6 +325,11 @@ Returns the conversation history for the given session. Only available if the ag
 {
   "history": {
     "compacted": [...]
+  },
+  "range": {
+    "start": 0,
+    "end": 42,
+    "total": 42
   }
 }
 ```
@@ -328,6 +337,14 @@ Returns the conversation history for the given session. Only available if the ag
 **Fields:**
 
 - `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
+- `range` — resolved range for the returned history:
+  - `start` — resolved inclusive start index.
+  - `end` — resolved exclusive end index.
+  - `total` — total number of messages in the selected history before range slicing.
+
+### Response `400 Bad Request`
+
+Returned when `start` or `end` is not an integer, or when the normalized range is invalid.
 
 ### Response `404 Not Found`
 

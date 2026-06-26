@@ -314,6 +314,10 @@ Authorization: Bearer <api-key>
 ### 查询参数
 
 - `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。
+- `start` —— _（可选）_ 从零开始的起始索引，包含该索引。负数从所选历史末尾倒数。
+- `end` —— _（可选）_ 从零开始的结束索引，不包含该索引。负数从所选历史末尾倒数。
+
+若省略 `start`，默认为 `0`。若省略 `end`，默认为所选历史长度。服务器应将超出范围的值限制到可用历史范围内。例如，`start=-50` 返回最后 50 条消息。范围应用于压缩后的所选历史表示，因此 `type=compacted&start=-20` 返回压缩历史中的最后 20 条消息。
 
 ### 响应 `200 OK`
 
@@ -321,6 +325,11 @@ Authorization: Bearer <api-key>
 {
   "history": {
     "compacted": [...]
+  },
+  "range": {
+    "start": 0,
+    "end": 42,
+    "total": 42
   }
 }
 ```
@@ -328,6 +337,14 @@ Authorization: Bearer <api-key>
 **字段：**
 
 - `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
+- `range` —— 返回历史的已解析范围：
+  - `start` —— 已解析的包含式起始索引。
+  - `end` —— 已解析的排除式结束索引。
+  - `total` —— 范围切片前所选历史中的消息总数。
+
+### 响应 `400 Bad Request`
+
+当 `start` 或 `end` 不是整数，或归一化后的范围无效时返回。
 
 ### 响应 `404 Not Found`
 

@@ -224,9 +224,20 @@ interface PostSessionsResponse {
 /** `GET /sessions/:id` 的响应体。 */
 type GetSessionResponse = SessionInfo;
 
+/** `GET /sessions/:id/history` 的已解析消息范围。 */
+interface HistoryRange {
+  /** 已解析的包含式起始索引。 */
+  start: number;
+  /** 已解析的排除式结束索引。 */
+  end: number;
+  /** 范围切片前所选历史中的消息总数。 */
+  total: number;
+}
+
 /** `GET /sessions/:id/history` 的响应体。 */
 interface GetSessionHistoryResponse {
   history: Partial<Record<HistoryType, HistoryMessage[]>>;
+  range: HistoryRange;
 }
 
 /** `GET /sessions` 的响应体。 */
