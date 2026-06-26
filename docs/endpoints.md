@@ -32,8 +32,8 @@ Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All
 | `GET`    | `/sessions/:id`         | Get a session by ID                    |
 | `PATCH`  | `/sessions/:id`         | Update session configuration           |
 | `DELETE` | `/sessions/:id`         | Delete a session                       |
-| `GET`    | `/sessions/:id/history` | Get session history                    |
 | `POST`   | `/sessions/:id/turns`   | Send a new turn to an existing session |
+| `GET`    | `/sessions/:id/history` | Get session history                    |
 
 ## Authentication
 
@@ -371,40 +371,6 @@ Returned on successful deletion.
 
 Returned when the session does not exist.
 
-## GET /sessions/:id/history
-
-Returns the conversation history for the given session. Only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta).
-
-### Query Parameters
-
-- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
-- `start` — _(optional)_ zero-based start index, inclusive. Negative values count back from the end of the selected history.
-- `end` — _(optional)_ zero-based end index, exclusive. Negative values count back from the end of the selected history.
-
-If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to the selected history length. Servers should clamp out-of-range values to the available history. For example, `start=-50` returns the last 50 messages. Ranges apply to the selected history representation after any compaction, so `type=compacted&start=-20` returns the last 20 messages from the compacted history.
-
-### Response `200 OK`
-
-```json
-{
-  "history": {
-    "compacted": [...]
-  }
-}
-```
-
-**Fields:**
-
-- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
-
-### Response `400 Bad Request`
-
-Returned when `start` or `end` is not an integer, or when the normalized range is invalid.
-
-### Response `404 Not Found`
-
-Returned when the session does not exist, or when the requested history `type` is not supported by the agent (i.e. not declared in `capabilities.history`).
-
 ## POST /sessions/:id/turns
 
 Send a new user turn or tool calling results to an existing session. The server appends the message to its history, runs the agent, and streams or returns the response.
@@ -438,3 +404,37 @@ Returned when the session already has an active turn.
 ### Retry Behavior
 
 This endpoint does not define an idempotency key. If a request fails or the connection drops, the client should recover by calling [`GET /sessions/:id`](/endpoints#get-sessions-id) to inspect `active` and `pending`, and may call [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) to restore display or execution state.
+
+## GET /sessions/:id/history
+
+Returns the conversation history for the given session. Only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta).
+
+### Query Parameters
+
+- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
+- `start` — _(optional)_ zero-based start index, inclusive. Negative values count back from the end of the selected history.
+- `end` — _(optional)_ zero-based end index, exclusive. Negative values count back from the end of the selected history.
+
+If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to the selected history length. Servers should clamp out-of-range values to the available history. For example, `start=-50` returns the last 50 messages. Ranges apply to the selected history representation after any compaction, so `type=compacted&start=-20` returns the last 20 messages from the compacted history.
+
+### Response `200 OK`
+
+```json
+{
+  "history": {
+    "compacted": [...]
+  }
+}
+```
+
+**Fields:**
+
+- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
+
+### Response `400 Bad Request`
+
+Returned when `start` or `end` is not an integer, or when the normalized range is invalid.
+
+### Response `404 Not Found`
+
+Returned when the session does not exist, or when the requested history `type` is not supported by the agent (i.e. not declared in `capabilities.history`).

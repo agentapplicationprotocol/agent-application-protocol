@@ -32,8 +32,8 @@ head:
 | `GET`    | `/sessions/:id`         | 按 ID 获取会话       |
 | `PATCH`  | `/sessions/:id`         | 更新会话配置         |
 | `DELETE` | `/sessions/:id`         | 删除会话             |
-| `GET`    | `/sessions/:id/history` | 获取会话历史         |
 | `POST`   | `/sessions/:id/turns`   | 向现有会话发送新轮次 |
+| `GET`    | `/sessions/:id/history` | 获取会话历史         |
 
 ## 认证
 
@@ -371,40 +371,6 @@ Location: /sessions/sess_abc123
 
 当会话不存在时返回。
 
-## GET /sessions/:id/history
-
-返回给定会话的对话历史。仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用。
-
-### 查询参数
-
-- `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。
-- `start` —— _（可选）_ 从零开始的起始索引，包含该索引。负数从所选历史末尾倒数。
-- `end` —— _（可选）_ 从零开始的结束索引，不包含该索引。负数从所选历史末尾倒数。
-
-若省略 `start`，默认为 `0`。若省略 `end`，默认为所选历史长度。服务器应将超出范围的值限制到可用历史范围内。例如，`start=-50` 返回最后 50 条消息。范围应用于压缩后的所选历史表示，因此 `type=compacted&start=-20` 返回压缩历史中的最后 20 条消息。
-
-### 响应 `200 OK`
-
-```json
-{
-  "history": {
-    "compacted": [...]
-  }
-}
-```
-
-**字段：**
-
-- `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
-
-### 响应 `400 Bad Request`
-
-当 `start` 或 `end` 不是整数，或归一化后的范围无效时返回。
-
-### 响应 `404 Not Found`
-
-当会话不存在，或请求的历史 `type` 不被 Agent 支持（即未在 `capabilities.history` 中声明）时返回。
-
 ## POST /sessions/:id/turns
 
 向现有会话发送新用户轮次或工具调用结果。服务器将消息追加到历史，运行 Agent，并流式传输或返回响应。
@@ -438,3 +404,37 @@ Location: /sessions/sess_abc123
 ### 重试行为
 
 此端点不定义幂等键。若请求失败或连接中断，客户端应调用 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 检查 `active` 和 `pending`，并可调用 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 恢复展示或执行状态。
+
+## GET /sessions/:id/history
+
+返回给定会话的对话历史。仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用。
+
+### 查询参数
+
+- `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。
+- `start` —— _（可选）_ 从零开始的起始索引，包含该索引。负数从所选历史末尾倒数。
+- `end` —— _（可选）_ 从零开始的结束索引，不包含该索引。负数从所选历史末尾倒数。
+
+若省略 `start`，默认为 `0`。若省略 `end`，默认为所选历史长度。服务器应将超出范围的值限制到可用历史范围内。例如，`start=-50` 返回最后 50 条消息。范围应用于压缩后的所选历史表示，因此 `type=compacted&start=-20` 返回压缩历史中的最后 20 条消息。
+
+### 响应 `200 OK`
+
+```json
+{
+  "history": {
+    "compacted": [...]
+  }
+}
+```
+
+**字段：**
+
+- `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
+
+### 响应 `400 Bad Request`
+
+当 `start` 或 `end` 不是整数，或归一化后的范围无效时返回。
+
+### 响应 `404 Not Found`
+
+当会话不存在，或请求的历史 `type` 不被 Agent 支持（即未在 `capabilities.history` 中声明）时返回。
