@@ -54,7 +54,7 @@ sequenceDiagram
     App->>User: Show agent list
     User->>App: Pick agent, configure options, enable tools
     App->>Agent: POST /sessions with options and tools
-    Agent-->>App: sessionId
+    Agent-->>App: Location: /sessions/:id
     loop Turns
         User->>App: Input prompt
         App->>Agent: POST /sessions/:id/turns
@@ -128,17 +128,18 @@ Content-Type: application/json
 
 Response:
 
-```json
-{ "sessionId": "sess_abc123" }
+```http
+HTTP/1.1 201 Created
+Location: /sessions/sess_abc123
 ```
 
-Store the `sessionId` — you'll use it for every turn.
+Extract and store the session ID from the `Location` header — you'll use it for every turn.
 
 Client-side tools declared here are persisted for the session.
 
 ## Step 5: Send turns and handle responses
 
-Send each user message to the session. You can override agent options, server tool configs, and client-side tools per turn — the agent cannot be changed after session creation:
+Send each user message to the session. To change agent options, server tool configs, or client-side tools, update the session first with `PATCH /sessions/:id`; turn requests only append messages.
 
 ```http
 POST /sessions/sess_abc123/turns
@@ -147,18 +148,7 @@ Content-Type: application/json
 
 {
   "stream": "delta",
-  "messages": [{ "role": "user", "content": "Summarize the latest AI news." }],
-  "agent": {
-    "tools": [{ "name": "web_search", "trust": false }],
-    "options": { "language": "Japanese" }
-  },
-  "tools": [
-    {
-      "name": "get_current_document",
-      "description": "Returns the content of the document currently open in the editor.",
-      "parameters": { "type": "object", "properties": {} }
-    }
-  ]
+  "messages": [{ "role": "user", "content": "Summarize the latest AI news." }]
 }
 ```
 
@@ -172,9 +162,9 @@ After receiving a response, the AAP SDK parses it and extracts any unresolved to
 
 - Show the tool name and description.
 - Use the tool's input schema to display each parameter name, its value, and description so the user understands what will run.
-- Ask the user to allow or deny (or update trust via `agent.tools` overrides to auto-allow in future turns).
+- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with `PATCH /sessions/:id`.
 
-Once the user responds to all prompts, gather every tool result and permission into a single turn request and submit it. The server persists any `agent` or `tools` overrides you include for the rest of the session.
+Once the user responds to all prompts, gather every tool result and permission into a single turn request and submit it.
 
 **If there are no unresolved tool calls**, the turn is complete — ask the user for their next message and go back to Step 5.
 

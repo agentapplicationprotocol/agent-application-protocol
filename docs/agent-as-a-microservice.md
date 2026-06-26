@@ -46,7 +46,7 @@ sequenceDiagram
     participant Agent as AAP Agent
 
     Service->>Agent: POST /sessions (agent options, tool configs, client-side tools)
-    Agent-->>Service: sessionId
+    Agent-->>Service: Location: /sessions/:id
     loop Requests
         User->>Service: Input prompt
         Service->>Agent: POST /sessions/:id/turns (user prompt)

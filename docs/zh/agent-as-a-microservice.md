@@ -46,7 +46,7 @@ sequenceDiagram
     participant Agent as AAP Agent
 
     Service->>Agent: POST /sessions（Agent 选项、工具配置、客户端工具）
-    Agent-->>Service: sessionId
+    Agent-->>Service: Location: /sessions/:id
     loop 请求
         User->>Service: 输入提示词
         Service->>Agent: POST /sessions/:id/turns（用户提示词）

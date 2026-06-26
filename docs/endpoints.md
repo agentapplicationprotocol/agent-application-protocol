@@ -30,6 +30,7 @@ Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All
 | `GET`    | `/sessions`             | List sessions                          |
 | `POST`   | `/sessions`             | Create a new session                   |
 | `GET`    | `/sessions/:id`         | Get a session by ID                    |
+| `PATCH`  | `/sessions/:id`         | Update session configuration           |
 | `DELETE` | `/sessions/:id`         | Delete a session                       |
 | `GET`    | `/sessions/:id/history` | Get session history                    |
 | `POST`   | `/sessions/:id/turns`   | Send a new turn to an existing session |
@@ -156,6 +157,8 @@ Returns a paginated list of sessions.
 
 - `after` — _(optional)_ pagination cursor. Pass the `next` value from the previous response to get the next page.
 
+Servers choose the page size. Clients should follow `next` cursors until `next` is absent instead of assuming a fixed number of sessions per page.
+
 ### Response `200 OK`
 
 ```json
@@ -163,6 +166,7 @@ Returns a paginated list of sessions.
   "sessions": [
     {
       "sessionId": "sess_abc123",
+      "active": false,
       "agent": {
         "name": "research-agent",
         "tools": [{ "name": "web_search", "trust": true }],
@@ -183,7 +187,8 @@ Returns a paginated list of sessions.
             "required": ["location"]
           }
         }
-      ]
+      ],
+      "pending": []
     }
   ],
   "next": "dXNlcjoxMjM0NTY3ODk"
@@ -197,7 +202,7 @@ Returns a paginated list of sessions.
 
 ## POST /sessions
 
-Creates a new session and returns a `sessionId`. Does not run the agent — use `POST /sessions/:id/turns` to send the first message.
+Creates a new session. Does not run the agent — use `POST /sessions/:id/turns` to send the first message.
 
 ### Request Body
 
@@ -248,9 +253,15 @@ Creates a new session and returns a `sessionId`. Does not run the agent — use 
 
 ### Response `201 Created`
 
-```json
-{ "sessionId": "sess_abc123" }
+Servers must include a `Location` header pointing to the created session resource. The response body is empty.
+
+```http
+Location: /sessions/sess_abc123
 ```
+
+### Retry Behavior
+
+This endpoint does not define an idempotency key. If a client loses the response after creating a session, it should recover by listing known sessions with `GET /sessions`, then continue with the matching session or delete abandoned sessions.
 
 ## GET /sessions/:id
 
@@ -261,6 +272,7 @@ Returns the session object for the given session ID.
 ```json
 {
   "sessionId": "sess_abc123",
+  "active": false,
   "agent": {
     "name": "research-agent",
     "tools": [{ "name": "web_search", "trust": true }],
@@ -281,19 +293,71 @@ Returns the session object for the given session ID.
         "required": ["location"]
       }
     }
-  ]
+  ],
+  "pending": []
 }
 ```
 
 **Fields:**
 
 - `sessionId` — the session identifier.
+- `active` — whether a turn is currently running for this session. When `true`, `PATCH /sessions/:id` and `POST /sessions/:id/turns` return `409 Conflict`.
 - `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
 - `tools` — client-side tools declared for this session.
+- `pending` — tool calls waiting for client action. Tool names are unique across client-side and server-side tools, so clients can determine whether each call requires a `tool` result or a `tool_permission` by matching the tool name against the configured tools.
 
 ### Response `404 Not Found`
 
 Returned when the session does not exist.
+
+## PATCH /sessions/:id
+
+Updates persisted session configuration. Use this endpoint to change server-side tool settings, agent options, or client-side tools outside of a turn. Agent `name` cannot be changed after session creation.
+
+### Request Body
+
+```json
+{
+  "agent": {
+    "tools": [{ "name": "web_search", "trust": true }],
+    "options": {
+      "language": "English"
+    }
+  },
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ]
+}
+```
+
+**Fields:**
+
+- `agent` — _(optional)_ session-level agent updates.
+  - `agent.tools` — _(optional)_ server-side tools. Replaces the session's server-side tool settings.
+  - `agent.options` — _(optional)_ key-value option updates. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value.
+- `tools` — _(optional)_ client-side tools. Replaces the client-side tools declared for the session.
+
+### Response `200 OK`
+
+Returns the updated session object, with the same shape as `GET /sessions/:id`.
+
+### Response `404 Not Found`
+
+Returned when the session does not exist.
+
+### Response `409 Conflict`
+
+Returned when the session has an active turn. Finish the current turn before updating session configuration.
 
 ## DELETE /sessions/:id
 
@@ -358,43 +422,28 @@ Send a new user turn or tool calling results to an existing session. The server 
 
 ```json
 {
-  "agent": {
-    "tools": [{ "name": "web_search", "trust": true }],
-    "options": {
-      "language": "English"
-    }
-  },
   "stream": "delta",
-  "messages": [{ "role": "user", "content": "What about Osaka?" }],
-  "tools": [
-    {
-      "name": "get_weather",
-      "description": "Get current weather for a location",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "location": { "type": "string" }
-        },
-        "required": ["location"]
-      }
-    }
-  ]
+  "messages": [{ "role": "user", "content": "What about Osaka?" }]
 }
 ```
 
 **Fields:**
 
-- `agent` — _(optional)_ session-level agent overrides. The server must persist these for the lifetime of the session. Agent `name` cannot be changed after session creation.
-  - `agent.tools` — _(optional)_ server-side tools. Overrides `agent.tools` declared at session creation.
-  - `agent.options` — _(optional)_ key-value option overrides. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value. The server must persist these for the lifetime of the session.
-- `stream` — _(optional)_ response mode. See [Response Modes](/response).
+- `stream` — _(optional)_ response mode. See [Response](/response).
 - `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
-- `tools` — _(optional)_ client-side tools. Overrides tools declared at session creation. The server must persist these for the lifetime of the session.
 
 ### Response `200 OK`
 
-See [Response Modes](/response) for the response body shape.
+See [Response](/response) for the response body shape.
 
 ### Response `404 Not Found`
 
 Returned when the session does not exist.
+
+### Response `409 Conflict`
+
+Returned when the session already has an active turn.
+
+### Retry Behavior
+
+This endpoint does not define an idempotency key. If a request fails or the connection drops, the client should recover by calling `GET /sessions/:id` to inspect `active` and `pending`, and may call `GET /sessions/:id/history` to restore display or execution state.

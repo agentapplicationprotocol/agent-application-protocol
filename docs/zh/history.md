@@ -30,7 +30,7 @@ head:
 
 服务器还可以额外持久化**完整未压缩历史**，用于审计跟踪、历史回放或面向用户的对话显示等场景。这是可选的，由实现定义。若提供，完整历史必须精确且未删减 —— 与压缩历史不同，不得省略或修改任何内容。
 
-每个 Agent 在 `GET /meta` 中通过 `capabilities.history` 声明其历史持久化能力。历史通过 `GET /sessions/:id/history` 获取，必须是兼容 `Message[]` 的数组。返回的历史可能包含未解决的工具调用（即没有匹配工具结果的工具调用）—— 客户端应准备好处理这种情况以进行[工具调用恢复](/zh/tool-call#工具调用恢复)。
+每个 Agent 在 `GET /meta` 中通过 `capabilities.history` 声明其历史持久化能力。历史通过 `GET /sessions/:id/history` 获取，必须是兼容 `Message[]` 的数组。返回的历史可能包含未解决的工具调用（即没有匹配工具结果的工具调用）。恢复时，客户端应优先使用 `GET /sessions/:id` 返回的 `active` 和 `pending`；参见[工具调用恢复](/zh/tool-call#工具调用恢复)。
 
 ## 客户端历史
 

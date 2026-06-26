@@ -108,7 +108,7 @@ sequenceDiagram
 After the LLM emits tool calls, the server resolves each one:
 
 1. For each `tool_call`, check if it is a trusted server-side tool — if so, execute it inline immediately and emit a `tool_result` event.
-2. If any tool calls remain unexecuted, emit `turn_stop` with `stopReason: "tool_use"`.
+2. If any tool calls remain unexecuted, persist them as `pending` and emit `turn_stop` with `stopReason: "tool_use"`.
 3. When the client re-submits, append the client-provided tool result messages to history.
 4. For each `tool_permission` in the submission, find the matching `tool_call` by `toolCallId` — execute the tool if granted, or store a `tool` message with a denial description (e.g. `"Tool call denied"`, or `"Tool call denied: <reason>"` if a `reason` was provided) to inform the LLM. `tool_permission` messages are never appended to history — they are dropped after processing.
 5. Append all `tool_result` events to history and continue the agent loop.
@@ -117,18 +117,20 @@ After the LLM emits tool calls, the server resolves each one:
 
 When the client receives `turn_stop` with `stopReason: "tool_use"`:
 
-1. Collect all `tool_call` events from the current turn.
-2. Ignore any whose `toolCallId` already has a matching `tool_result` — those were handled inline by the server.
-3. For each remaining tool call, determine whether it is a client-side tool (by matching the name against tools declared in the request) or a server-side tool:
+1. Collect `pending` from `turn_stop`.
+2. For each tool call, determine whether it is a client-side tool (by matching the name against tools declared in the request) or a server-side tool:
    - Client-side tool: optionally prompt the user whether to proceed, then execute it and collect the result.
    - Server-side tool: prompt the user or apply policy to grant or deny permission.
-4. Submit all results and permissions together in a single `POST /sessions/:id/turns`.
+3. Submit all results and permissions together in a single `POST /sessions/:id/turns`.
 
 ## Tool call resumption
 
-If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id/history` to retrieve the session history and resume from where it left off:
+If a client has no in-memory state (e.g. after a restart or recovery), it can call `GET /sessions/:id` to retrieve `active` and `pending` and resume from where it left off:
 
-1. Fetch session history via `GET /sessions/:id/history`.
-2. Inspect the last assistant message in history — if it has unresolved tool calls (no matching `tool` message in history), the last turn ended with `stopReason: "tool_use"` and requires client action.
-3. Apply the same client-side resolving logic: identify client-side tools to execute and server-side tools requiring permission.
-4. Submit results and permissions via `POST /sessions/:id/turns` to continue.
+1. Fetch the session via `GET /sessions/:id`.
+2. If `active` is `true`, a turn is still running. Wait or poll before submitting another turn.
+3. If `pending` is non-empty, the previous turn ended with `stopReason: "tool_use"` and requires client action.
+4. Apply the same client-side resolving logic: match each tool name against the configured tools to determine whether to execute a client-side tool and submit a `tool` result, or submit a `tool_permission` for an untrusted server-side tool.
+5. Submit all results and permissions via `POST /sessions/:id/turns` to continue.
+
+Clients may still inspect `GET /sessions/:id/history` for display, auditing, or fallback recovery.

@@ -126,6 +126,8 @@ event: turn_stop
 data: {"stopReason": "end_turn"}
 ```
 
+当 `stopReason` 为 `"tool_use"` 时，`turn_stop` 包含 `pending`：仍等待客户端操作的工具调用。工具名称在客户端工具和服务端工具之间唯一，因此客户端可以将工具名称与已配置工具匹配，判断应提交 `tool` 结果还是 `tool_permission`。
+
 **停止原因：**
 
 | `stopReason` | 含义                                                                                                        |
@@ -147,7 +149,7 @@ sequenceDiagram
     Agent-->>App: agents
 
     App->>Agent: POST /sessions
-    Agent-->>App: sessionId
+    Agent-->>App: Location: /sessions/:id
 
     loop 每次轮次（用户消息或工具结果/权限）
         App->>Agent: POST /sessions/:id/turns
@@ -185,6 +187,8 @@ sequenceDiagram
 interface AgentResponse {
   stopReason: StopReason;
   messages: HistoryMessage[];
+  /** stopReason 为 "tool_use" 时存在。 */
+  pending?: ToolCall[];
 }
 ```
 

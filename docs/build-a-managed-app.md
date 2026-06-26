@@ -53,7 +53,7 @@ sequenceDiagram
     User->>App: Start session
     App->>Server: Request session
     Server->>Agent: POST /sessions (AAP key, agent options, tool configs)
-    Agent-->>Server: sessionId
+    Agent-->>Server: Location: /sessions/:id
     Server-->>App: sessionId
     loop Turns
         User->>App: Input prompt
@@ -89,7 +89,7 @@ When the user opens your app, authenticate them against your own server using yo
 
 ## Step 3: Create a session via your server
 
-The client asks your server to create a session. Your server calls `POST /sessions` on the AAP agent using your long-lived AAP API key, with your preconfigured agent options and tool configs. Your server returns only the `sessionId` to the client — the AAP key never leaves your server.
+The client asks your server to create a session. Your server calls `POST /sessions` on the AAP agent using your long-lived AAP API key, with your preconfigured agent options and tool configs. The AAP agent returns the session URL in `Location`; your server can extract the session ID and return only that ID to the client. The AAP key never leaves your server.
 
 ## Step 4: Send turns via your server
 
@@ -112,7 +112,7 @@ After each response, the AAP SDK extracts any unresolved tool calls — client-s
 
 - Show the tool name and description.
 - Use the tool's input schema to display each parameter name, value, and description.
-- Ask the user to allow or deny (or update trust via `agent.tools` overrides).
+- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with `PATCH /sessions/:id`.
 
 Gather all results and permissions into a single turn request and submit it via your server proxy.
 

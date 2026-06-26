@@ -54,7 +54,7 @@ sequenceDiagram
     App->>User: 显示 Agent 列表
     User->>App: 选择 Agent，配置选项，启用工具
     App->>Agent: POST /sessions（含选项和工具）
-    Agent-->>App: sessionId
+    Agent-->>App: Location: /sessions/:id
     loop 轮次
         User->>App: 输入提示词
         App->>Agent: POST /sessions/:id/turns
@@ -128,17 +128,18 @@ Content-Type: application/json
 
 响应：
 
-```json
-{ "sessionId": "sess_abc123" }
+```http
+HTTP/1.1 201 Created
+Location: /sessions/sess_abc123
 ```
 
-保存 `sessionId` —— 每次轮次都会用到它。
+从 `Location` 响应头中提取并保存会话 ID —— 每次轮次都会用到它。
 
 此处声明的客户端工具在会话期间持久保存。
 
 ## 第五步：发送轮次并处理响应
 
-将每条用户消息发送到会话。你可以在每次轮次中覆盖 Agent 选项、服务端工具配置和客户端工具 —— 会话创建后不能更改 Agent：
+将每条用户消息发送到会话。若要更改 Agent 选项、服务端工具配置或客户端工具，请先使用 `PATCH /sessions/:id` 更新会话；轮次请求只追加消息。
 
 ```http
 POST /sessions/sess_abc123/turns
@@ -147,18 +148,7 @@ Content-Type: application/json
 
 {
   "stream": "delta",
-  "messages": [{ "role": "user", "content": "总结最新的 AI 新闻。" }],
-  "agent": {
-    "tools": [{ "name": "web_search", "trust": false }],
-    "options": { "language": "English" }
-  },
-  "tools": [
-    {
-      "name": "get_current_document",
-      "description": "返回编辑器中当前打开文档的内容。",
-      "parameters": { "type": "object", "properties": {} }
-    }
-  ]
+  "messages": [{ "role": "user", "content": "总结最新的 AI 新闻。" }]
 }
 ```
 
@@ -172,9 +162,9 @@ Content-Type: application/json
 
 - 显示工具名称和描述。
 - 使用工具的输入 schema 展示每个参数名称、值和描述，让用户了解将要执行的内容。
-- 询问用户允许或拒绝（或通过 `agent.tools` 覆盖更新信任，以便在未来轮次中自动允许）。
+- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 `PATCH /sessions/:id` 更新会话的服务端工具设置。
 
-用户响应所有提示后，将所有工具结果和权限汇总到单个轮次请求中提交。服务端会将你包含的任何 `agent` 或 `tools` 的覆盖持久化到会话中。
+用户响应所有提示后，将所有工具结果和权限汇总到单个轮次请求中提交。
 
 **若没有未解决的工具调用**，本轮次完成 —— 询问用户下一条消息并返回第五步。
 

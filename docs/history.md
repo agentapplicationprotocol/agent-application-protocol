@@ -30,7 +30,7 @@ The server must persist at minimum a **compacted history**: a representation of 
 
 The server may additionally persist the **full uncompacted history** for use cases such as audit trails, history replay, or user-facing conversation display. This is optional and implementation-defined. If provided, the full history must be exact and unredacted — unlike compacted history, no content may be omitted or altered.
 
-Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`. History is retrieved via `GET /sessions/:id/history` and must be a `Message[]`-compatible array. The returned history may contain unresolved tool calls (i.e. tool calls without a matching tool result) — clients should be prepared to handle this for [tool call resumption](/tool-call#tool-call-resumption).
+Each agent declares its history persistence capabilities in `GET /meta` via `capabilities.history`. History is retrieved via `GET /sessions/:id/history` and must be a `Message[]`-compatible array. The returned history may contain unresolved tool calls (i.e. tool calls without a matching tool result). For recovery, clients should use `active` and `pending` from `GET /sessions/:id` when available; see [tool call resumption](/tool-call#tool-call-resumption).
 
 ## Client History
 

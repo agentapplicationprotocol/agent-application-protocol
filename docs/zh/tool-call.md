@@ -108,7 +108,7 @@ sequenceDiagram
 LLM 发出工具调用后，服务器解析每个调用：
 
 1. 对每个 `tool_call`，检查是否为受信任的服务端工具 —— 若是，立即内联执行并发出 `tool_result` 事件。
-2. 若仍有未执行的工具调用，以 `stopReason: "tool_use"` 发出 `turn_stop`。
+2. 若仍有未执行的工具调用，将其持久化为 `pending`，并以 `stopReason: "tool_use"` 发出 `turn_stop`。
 3. 客户端重新提交时，将客户端提供的工具结果消息追加到历史。
 4. 对提交中的每个 `tool_permission`，通过 `toolCallId` 找到匹配的 `tool_call` —— 若授权则执行工具，或存储带拒绝描述的 `tool` 消息（如 `"工具调用被拒绝"`，或若提供了 `reason` 则为 `"工具调用被拒绝：<reason>"`）以告知 LLM。`tool_permission` 消息永远不会追加到历史 —— 处理后丢弃。
 5. 将所有 `tool_result` 事件追加到历史并继续 Agent 循环。
@@ -117,18 +117,20 @@ LLM 发出工具调用后，服务器解析每个调用：
 
 当客户端收到 `stopReason: "tool_use"` 的 `turn_stop` 时：
 
-1. 收集当前轮次的所有 `tool_call` 事件。
-2. 忽略已有匹配 `tool_result` 的 `toolCallId` —— 这些已由服务器内联处理。
-3. 对每个剩余的工具调用，通过将名称与请求中声明的工具匹配来判断是客户端工具还是服务端工具：
+1. 从 `turn_stop` 收集 `pending`。
+2. 对每个工具调用，通过将名称与请求中声明的工具匹配来判断是客户端工具还是服务端工具：
    - 客户端工具：可选地提示用户是否继续，然后执行并收集结果。
    - 服务端工具：提示用户或应用策略来授予或拒绝权限。
-4. 在单个 `POST /sessions/:id/turns` 中一起提交所有结果和权限。
+3. 在单个 `POST /sessions/:id/turns` 中一起提交所有结果和权限。
 
 ## 工具调用恢复
 
-若客户端没有存储会话历史（如重启或恢复后），可以调用 `GET /sessions/:id/history` 获取会话历史并从中断处恢复：
+若客户端没有内存状态（如重启或恢复后），可以调用 `GET /sessions/:id` 获取 `active` 和 `pending` 并从中断处恢复：
 
-1. 通过 `GET /sessions/:id/history` 获取会话历史。
-2. 检查历史中最后一条助手消息 —— 若有未解析的工具调用（历史中没有匹配的 `tool` 消息），则最后一次轮次以 `stopReason: "tool_use"` 结束，需要客户端操作。
-3. 应用相同的客户端解析逻辑：识别要执行的客户端工具和需要权限的服务端工具。
-4. 通过 `POST /sessions/:id/turns` 提交结果和权限以继续。
+1. 通过 `GET /sessions/:id` 获取会话。
+2. 若 `active` 为 `true`，表示仍有轮次正在运行。等待或轮询后再提交其他轮次。
+3. 若 `pending` 非空，则最后一次轮次以 `stopReason: "tool_use"` 结束，需要客户端操作。
+4. 应用相同的客户端解析逻辑：将每个工具名称与已配置工具匹配，判断是执行客户端工具并提交 `tool` 结果，还是为不受信任的服务端工具提交 `tool_permission`。
+5. 通过 `POST /sessions/:id/turns` 提交所有结果和权限以继续。
+
+客户端仍可查看 `GET /sessions/:id/history` 用于展示、审计或兜底恢复。

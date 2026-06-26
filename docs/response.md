@@ -126,6 +126,8 @@ event: turn_stop
 data: {"stopReason": "end_turn"}
 ```
 
+When `stopReason` is `"tool_use"`, `turn_stop` includes `pending`: the tool calls still waiting for client action. Tool names are unique across client-side and server-side tools, so clients can match each tool name against the configured tools to determine whether to submit a `tool` result or a `tool_permission`.
+
 **Stop reasons:**
 
 | `stopReason` | Meaning                                                                                                                                                                                    |
@@ -147,7 +149,7 @@ sequenceDiagram
     Agent-->>App: agents
 
     App->>Agent: POST /sessions
-    Agent-->>App: sessionId
+    Agent-->>App: Location: /sessions/:id
 
     loop Each turn (user message or tool result/permission)
         App->>Agent: POST /sessions/:id/turns
@@ -185,6 +187,8 @@ sequenceDiagram
 interface AgentResponse {
   stopReason: StopReason;
   messages: HistoryMessage[];
+  /** Present when stopReason is "tool_use". */
+  pending?: ToolCall[];
 }
 ```
 

@@ -70,7 +70,7 @@ interface AgentConfig {
 
 /** Declares what an agent supports. Missing fields should be treated as unsupported. */
 interface AgentCapabilities {
-  /** Declares what history the agent can return in `GET /session/:id`. */
+  /** Declares what history the agent can return in `GET /sessions/:id/history`. */
   history?: Partial<Record<HistoryType, Record<string, never>>>;
   /** Declares which stream modes the agent supports. */
   stream?: Partial<Record<StreamMode, Record<string, never>>>;
@@ -196,13 +196,17 @@ interface PostSessionsRequest {
 
 /** Request body for `POST /sessions/:id/turns`. */
 interface PostSessionTurnRequest {
-  /** Session-level agent overrides. Agent name cannot be changed. Options merged by key. */
-  agent?: Omit<AgentConfig, "name">;
   /** Response mode. Defaults to `"none"`. */
   stream?: StreamMode;
   /** A single user message, or a mixed list of tool results and tool permissions. */
   messages: ApplicationMessage[];
-  /** Client-side tools. Overrides tools declared at session creation. */
+}
+
+/** Request body for `PATCH /sessions/:id`. */
+interface PatchSessionRequest {
+  /** Session-level agent updates. Agent name cannot be changed. Options merged by key. */
+  agent?: Omit<AgentConfig, "name">;
+  /** Client-side tools. Replaces tools declared for the session. */
   tools?: ToolSpec[];
 }
 ```
@@ -214,15 +218,15 @@ interface PostSessionTurnRequest {
 interface PostSessionTurnResponse {
   stopReason: StopReason;
   messages: AgentMessage[];
-}
-
-/** Response body for `POST /sessions`. */
-interface PostSessionsResponse {
-  sessionId: string;
+  /** Present when `stopReason` is `"tool_use"`. */
+  pending?: ToolCall[];
 }
 
 /** Response body for `GET /sessions/:id`. */
 type GetSessionResponse = SessionInfo;
+
+/** Response body for `PATCH /sessions/:id`. */
+type PatchSessionResponse = SessionInfo;
 
 /** Resolved message range for `GET /sessions/:id/history`. */
 interface HistoryRange {
@@ -265,10 +269,14 @@ type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
 /** Session data shape, used in `GET /sessions/:id` and items in `GET /sessions`. */
 interface SessionInfo {
   sessionId: string;
+  /** Whether a turn is currently running for this session. */
+  active: boolean;
   /** Secret option values in `agent.options` are redacted (e.g. `"***"`). */
   agent: AgentConfig;
   /** Client-side tools declared for this session. */
   tools?: ToolSpec[];
+  /** Tool calls waiting for client action. */
+  pending?: ToolCall[];
 }
 ```
 
@@ -310,6 +318,8 @@ interface ToolResultEvent extends ToolResult {
 interface TurnStopEvent {
   event: "turn_stop";
   stopReason: StopReason;
+  /** Present when `stopReason` is `"tool_use"`. */
+  pending?: ToolCall[];
 }
 
 /** SSE event data for `stream: "delta"` and `stream: "message"` responses. */

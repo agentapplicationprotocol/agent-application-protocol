@@ -30,6 +30,7 @@ head:
 | `GET`    | `/sessions`             | 列出会话             |
 | `POST`   | `/sessions`             | 创建新会话           |
 | `GET`    | `/sessions/:id`         | 按 ID 获取会话       |
+| `PATCH`  | `/sessions/:id`         | 更新会话配置         |
 | `DELETE` | `/sessions/:id`         | 删除会话             |
 | `GET`    | `/sessions/:id/history` | 获取会话历史         |
 | `POST`   | `/sessions/:id/turns`   | 向现有会话发送新轮次 |
@@ -156,6 +157,8 @@ Authorization: Bearer <api-key>
 
 - `after` —— _（可选）_ 分页游标。传入上一响应的 `next` 值以获取下一页。
 
+服务器选择分页大小。客户端应持续跟随 `next` 游标直到 `next` 不存在，而不是假设每页固定的会话数量。
+
 ### 响应 `200 OK`
 
 ```json
@@ -163,6 +166,7 @@ Authorization: Bearer <api-key>
   "sessions": [
     {
       "sessionId": "sess_abc123",
+      "active": false,
       "agent": {
         "name": "research-agent",
         "tools": [{ "name": "web_search", "trust": true }],
@@ -183,7 +187,8 @@ Authorization: Bearer <api-key>
             "required": ["location"]
           }
         }
-      ]
+      ],
+      "pending": []
     }
   ],
   "next": "dXNlcjoxMjM0NTY3ODk"
@@ -197,7 +202,7 @@ Authorization: Bearer <api-key>
 
 ## POST /sessions
 
-创建新会话并返回 `sessionId`。不运行 Agent —— 使用 `POST /sessions/:id/turns` 发送第一条消息以运行 Agent。
+创建新会话。不运行 Agent —— 使用 `POST /sessions/:id/turns` 发送第一条消息以运行 Agent。
 
 ### 请求体
 
@@ -248,9 +253,15 @@ Authorization: Bearer <api-key>
 
 ### 响应 `201 Created`
 
-```json
-{ "sessionId": "sess_abc123" }
+服务器必须包含指向已创建会话资源的 `Location` 响应头。响应体为空。
+
+```http
+Location: /sessions/sess_abc123
 ```
+
+### 重试行为
+
+此端点不定义幂等键。若客户端在创建会话后丢失响应，应通过 `GET /sessions` 列出已知会话来恢复，然后继续使用匹配的会话，或删除废弃会话。
 
 ## GET /sessions/:id
 
@@ -261,6 +272,7 @@ Authorization: Bearer <api-key>
 ```json
 {
   "sessionId": "sess_abc123",
+  "active": false,
   "agent": {
     "name": "research-agent",
     "tools": [{ "name": "web_search", "trust": true }],
@@ -281,19 +293,71 @@ Authorization: Bearer <api-key>
         "required": ["location"]
       }
     }
-  ]
+  ],
+  "pending": []
 }
 ```
 
 **字段：**
 
 - `sessionId` —— 会话标识符。
+- `active` —— 此会话当前是否有正在运行的轮次。为 `true` 时，`PATCH /sessions/:id` 和 `POST /sessions/:id/turns` 返回 `409 Conflict`。
 - `agent` —— 此会话的 Agent 配置。`"secret"` 类型的 `agent.options` 不得以明文返回；服务器应返回不透明占位符（如 `"***"`）。
 - `tools` —— 为此会话声明的客户端工具。
+- `pending` —— 等待客户端操作的工具调用。工具名称在客户端工具和服务端工具之间唯一，因此客户端可以将工具名称与已配置工具匹配，判断每个调用需要提交 `tool` 结果还是 `tool_permission`。
 
 ### 响应 `404 Not Found`
 
 当会话不存在时返回。
+
+## PATCH /sessions/:id
+
+更新持久化的会话配置。使用此端点在轮次之外更改服务端工具设置、Agent 选项或客户端工具。会话创建后不能更改 Agent `name`。
+
+### 请求体
+
+```json
+{
+  "agent": {
+    "tools": [{ "name": "web_search", "trust": true }],
+    "options": {
+      "language": "English"
+    }
+  },
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "获取某地点的当前天气",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": { "type": "string" }
+        },
+        "required": ["location"]
+      }
+    }
+  ]
+}
+```
+
+**字段：**
+
+- `agent` —— _（可选）_ 会话级 Agent 更新。
+  - `agent.tools` —— _（可选）_ 服务端工具。替换会话的服务端工具设置。
+  - `agent.options` —— _（可选）_ 键值选项更新。选项按键合并：只更新提供的键，省略的键保持不变。要取消设置某选项，发送其默认值。
+- `tools` —— _（可选）_ 客户端工具。替换为会话声明的客户端工具。
+
+### 响应 `200 OK`
+
+返回更新后的会话对象，形状与 `GET /sessions/:id` 相同。
+
+### 响应 `404 Not Found`
+
+当会话不存在时返回。
+
+### 响应 `409 Conflict`
+
+当会话存在活跃轮次时返回。请先完成当前轮次，再更新会话配置。
 
 ## DELETE /sessions/:id
 
@@ -358,43 +422,28 @@ Authorization: Bearer <api-key>
 
 ```json
 {
-  "agent": {
-    "tools": [{ "name": "web_search", "trust": true }],
-    "options": {
-      "language": "English"
-    }
-  },
   "stream": "delta",
-  "messages": [{ "role": "user", "content": "大阪呢？" }],
-  "tools": [
-    {
-      "name": "get_weather",
-      "description": "获取某地点的当前天气",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "location": { "type": "string" }
-        },
-        "required": ["location"]
-      }
-    }
-  ]
+  "messages": [{ "role": "user", "content": "大阪呢？" }]
 }
 ```
 
 **字段：**
 
-- `agent` —— _（可选）_ 会话级 Agent 覆盖。服务器必须在会话生命周期内持久化这些覆盖。会话创建后不能更改 Agent `name`。
-  - `agent.tools` —— _（可选）_ 服务端工具。覆盖会话创建时声明的 `agent.tools`。
-  - `agent.options` —— _（可选）_ 键值选项覆盖。选项按键合并：只更新提供的键，省略的键保持不变。要取消设置某选项，发送其默认值。服务器必须在会话生命周期内持久化这些覆盖。
-- `stream` —— _（可选）_ 响应模式。见[响应模式](/zh/response)。
+- `stream` —— _（可选）_ 响应模式。见[响应](/zh/response)。
 - `messages` —— _（必填）_ 要追加的新轮次。通常是单条 `user` 消息，但在 `tool_use` 停止后重新提交时也可以是工具结果或工具权限。
-- `tools` —— _（可选）_ 客户端工具。覆盖会话创建时声明的工具。服务器必须在会话生命周期内持久化这些覆盖。
 
 ### 响应 `200 OK`
 
-响应体格式见[响应模式](/zh/response)。
+响应体格式见[响应](/zh/response)。
 
 ### 响应 `404 Not Found`
 
 当会话不存在时返回。
+
+### 响应 `409 Conflict`
+
+当会话已有活跃轮次时返回。
+
+### 重试行为
+
+此端点不定义幂等键。若请求失败或连接中断，客户端应调用 `GET /sessions/:id` 检查 `active` 和 `pending`，并可调用 `GET /sessions/:id/history` 恢复展示或执行状态。

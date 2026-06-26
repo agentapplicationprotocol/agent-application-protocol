@@ -196,13 +196,17 @@ interface PostSessionsRequest {
 
 /** `POST /sessions/:id/turns` 的请求体。 */
 interface PostSessionTurnRequest {
-  /** 会话级 Agent 覆盖。Agent 名称不能更改。选项按键合并。 */
-  agent?: Omit<AgentConfig, "name">;
   /** 响应模式。默认为 `"none"`。 */
   stream?: StreamMode;
   /** 单条用户消息，或工具结果和工具权限的混合列表。 */
   messages: ApplicationMessage[];
-  /** 客户端工具。覆盖会话创建时声明的工具。 */
+}
+
+/** `PATCH /sessions/:id` 的请求体。 */
+interface PatchSessionRequest {
+  /** 会话级 Agent 更新。Agent 名称不能更改。选项按键合并。 */
+  agent?: Omit<AgentConfig, "name">;
+  /** 客户端工具。替换为会话声明的工具。 */
   tools?: ToolSpec[];
 }
 ```
@@ -214,15 +218,15 @@ interface PostSessionTurnRequest {
 interface PostSessionTurnResponse {
   stopReason: StopReason;
   messages: AgentMessage[];
-}
-
-/** `POST /sessions` 的响应体。 */
-interface PostSessionsResponse {
-  sessionId: string;
+  /** `stopReason` 为 `"tool_use"` 时存在。 */
+  pending?: ToolCall[];
 }
 
 /** `GET /sessions/:id` 的响应体。 */
 type GetSessionResponse = SessionInfo;
+
+/** `PATCH /sessions/:id` 的响应体。 */
+type PatchSessionResponse = SessionInfo;
 
 /** `GET /sessions/:id/history` 的已解析消息范围。 */
 interface HistoryRange {
@@ -265,10 +269,14 @@ type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
 /** 会话数据结构，用于 `GET /sessions/:id` 及 `GET /sessions` 中的条目。 */
 interface SessionInfo {
   sessionId: string;
+  /** 此会话当前是否有正在运行的轮次。 */
+  active: boolean;
   /** `agent.options` 中的 secret 选项值已删减（如 `"***"`）。 */
   agent: AgentConfig;
   /** 为此会话声明的客户端工具。 */
   tools?: ToolSpec[];
+  /** 等待客户端操作的工具调用。 */
+  pending?: ToolCall[];
 }
 ```
 
@@ -310,6 +318,8 @@ interface ToolResultEvent extends ToolResult {
 interface TurnStopEvent {
   event: "turn_stop";
   stopReason: StopReason;
+  /** `stopReason` 为 `"tool_use"` 时存在。 */
+  pending?: ToolCall[];
 }
 
 /** `stream: "delta"` 和 `stream: "message"` 响应的 SSE 事件数据。 */
