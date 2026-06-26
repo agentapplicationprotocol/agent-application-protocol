@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Added range-based history retrieval with `start` and `end` query parameters for `GET /sessions/:id/history`, including `range` metadata in the response.
+- Added range-based history retrieval with `start` and `end` query parameters for `GET /sessions/:id/history`.
 - Added `PATCH /sessions/:id` for persisted session configuration updates.
 - Added `active` and `pending` session state fields, with pending tool calls returned from session and turn responses.
 

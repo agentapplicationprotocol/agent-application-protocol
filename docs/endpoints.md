@@ -389,11 +389,6 @@ If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to t
 {
   "history": {
     "compacted": [...]
-  },
-  "range": {
-    "start": 0,
-    "end": 42,
-    "total": 42
   }
 }
 ```
@@ -401,10 +396,6 @@ If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to t
 **Fields:**
 
 - `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
-- `range` — resolved range for the returned history:
-  - `start` — resolved inclusive start index.
-  - `end` — resolved exclusive end index.
-  - `total` — total number of messages in the selected history before range slicing.
 
 ### Response `400 Bad Request`
 

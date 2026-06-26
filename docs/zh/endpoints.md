@@ -389,11 +389,6 @@ Location: /sessions/sess_abc123
 {
   "history": {
     "compacted": [...]
-  },
-  "range": {
-    "start": 0,
-    "end": 42,
-    "total": 42
   }
 }
 ```
@@ -401,10 +396,6 @@ Location: /sessions/sess_abc123
 **字段：**
 
 - `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
-- `range` —— 返回历史的已解析范围：
-  - `start` —— 已解析的包含式起始索引。
-  - `end` —— 已解析的排除式结束索引。
-  - `total` —— 范围切片前所选历史中的消息总数。
 
 ### 响应 `400 Bad Request`
 
