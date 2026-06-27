@@ -393,6 +393,10 @@ Send a new user turn or tool calling results to an existing session. The server 
 
 See [Response](/response) for the response body shape.
 
+### Response `400 Bad Request`
+
+Returned when the submitted turn is invalid. If the session has pending tool calls, the request must include exactly one result or permission for each pending tool call; missing, unknown, or duplicate tool call IDs are invalid.
+
 ### Response `404 Not Found`
 
 Returned when the session does not exist.

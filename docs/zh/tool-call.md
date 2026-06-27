@@ -109,9 +109,10 @@ LLM 发出工具调用后，服务器解析每个调用：
 
 1. 对每个 `tool_call`，检查是否为受信任的服务端工具 —— 若是，立即内联执行并发出 `tool_result` 事件。
 2. 若仍有未执行的工具调用，将其持久化为 `pending`，并以 `stopReason: "tool_use"` 发出 `turn_stop`。
-3. 客户端重新提交时，将客户端提供的工具结果消息追加到历史。
-4. 对提交中的每个 `tool_permission`，通过 `toolCallId` 找到匹配的 `tool_call` —— 若授权则执行工具，或存储带拒绝描述的 `tool` 消息（如 `"工具调用被拒绝"`，或若提供了 `reason` 则为 `"工具调用被拒绝：<reason>"`）以告知 LLM。`tool_permission` 消息永远不会追加到历史 —— 处理后丢弃。
-5. 将所有 `tool_result` 事件追加到历史并继续 Agent 循环。
+3. 客户端重新提交时，验证提交是否为每个等待处理的工具调用包含且仅包含一个结果或权限决定；缺失、未知或重复的工具调用 ID 应以 `400 Bad Request` 拒绝。
+4. 将客户端提供的工具结果消息追加到历史。
+5. 对提交中的每个 `tool_permission`，通过 `toolCallId` 找到匹配的 `tool_call` —— 若授权则执行工具，或存储带拒绝描述的 `tool` 消息（如 `"工具调用被拒绝"`，或若提供了 `reason` 则为 `"工具调用被拒绝：<reason>"`）以告知 LLM。`tool_permission` 消息永远不会追加到历史 —— 处理后丢弃。
+6. 将所有 `tool_result` 事件追加到历史并继续 Agent 循环。
 
 ### 客户端
 
@@ -121,7 +122,7 @@ LLM 发出工具调用后，服务器解析每个调用：
 2. 对每个工具调用，通过将名称与请求中声明的工具匹配来判断是客户端工具还是服务端工具：
    - 客户端工具：可选地提示用户是否继续，然后执行并收集结果。
    - 服务端工具：提示用户或应用策略来授予或拒绝权限。
-3. 在单个 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 中一起提交所有结果和权限。
+3. 在单个 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 中一起提交所有结果和权限。部分提交无效。
 
 ## 工具调用恢复
 
@@ -131,6 +132,6 @@ LLM 发出工具调用后，服务器解析每个调用：
 2. 若 `active` 为 `true`，表示仍有轮次正在运行。等待或轮询后再提交其他轮次。
 3. 若 `pending` 非空，则最后一次轮次以 `stopReason: "tool_use"` 结束，需要客户端操作。
 4. 应用相同的客户端解析逻辑：将每个工具名称与已配置工具匹配，判断是执行客户端工具并提交 `tool` 结果，还是为不受信任的服务端工具提交 `tool_permission`。
-5. 通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 提交所有结果和权限以继续。
+5. 通过 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 提交所有结果和权限以继续。部分提交无效。
 
 客户端仍可查看 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 用于展示、审计或兜底恢复。
