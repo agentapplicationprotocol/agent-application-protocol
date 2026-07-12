@@ -62,7 +62,7 @@ interface AgentConfig {
   /** 要启用的服务端工具。若省略，所有暴露的 Agent 工具均禁用。 */
   tools?: ServerToolRef[];
   /** 与 Agent 声明的选项匹配的键值对。 */
-  options?: Record<string, string>;
+  options?: Record<string, string | boolean>;
 }
 
 /** 声明 Agent 支持的功能。缺失字段应视为不支持。 */
@@ -134,26 +134,32 @@ type ContentBlock =
 ## Messages
 
 ```typescript
+/** 所有消息共享的基础字段。 */
+interface BaseMessage {
+  id: string;
+  timestamp: string; // ISO 8601
+}
+
 /** 向 Agent 提供指令的系统角色消息。 */
-interface SystemMessage {
+interface SystemMessage extends BaseMessage {
   role: "system";
   content: string;
 }
 
 /** 用户角色消息。 */
-interface UserMessage {
+interface UserMessage extends BaseMessage {
   role: "user";
   content: string | ContentBlock[];
 }
 
 /** 助手角色消息。 */
-interface AssistantMessage {
+interface AssistantMessage extends BaseMessage {
   role: "assistant";
   content: string | ContentBlock[];
 }
 
 /** 应用在 `tool_call` 块后返回的工具结果消息。 */
-interface ToolMessage extends ToolResult {
+interface ToolMessage extends BaseMessage, ToolResult {
   role: "tool";
 }
 
@@ -162,16 +168,6 @@ type HistoryMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessa
 
 /** Agent 生成的消息。 */
 type AgentMessage = AssistantMessage | ToolMessage;
-
-/** 授予或拒绝服务器代表客户端调用工具的权限。 */
-interface ToolPermissionMessage {
-  role: "tool_permission";
-  toolCallId: string;
-  /** 客户端是否授予工具调用权限。 */
-  granted: boolean;
-  /** 可选说明，在 `granted` 为 `false` 时尤其有用。 */
-  reason?: string;
-}
 ```
 
 ## Requests
@@ -225,7 +221,7 @@ interface CancelInput {
 }
 
 /** `POST /sessions/:id/input` 的请求体。 */
-type PublishInputRequest = UserInput | ToolInput | PermissionInput | CancelInput;
+type PostSessionInputRequest = UserInput | ToolInput | PermissionInput | CancelInput;
 ```
 
 ## Responses
@@ -237,17 +233,9 @@ type GetSessionResponse = SessionInfo;
 /** `PATCH /sessions/:id` 的响应体。 */
 type PatchSessionResponse = SessionInfo;
 
-/** 携带服务器分配的 id 和时间戳的历史消息。 */
-interface HistoryEntry {
-  id: string;
-  timestamp: string; // ISO 8601
-  role: "system" | "user" | "assistant";
-  content: string | ContentBlock[];
-}
-
 /** `GET /sessions/:id/history` 的响应体。 */
 interface GetSessionHistoryResponse {
-  history: HistoryEntry[];
+  history: HistoryMessage[];
   /** 不透明游标；作为 `before` 传入以获取更早的消息。无更多历史时不存在。 */
   before?: string;
 }
@@ -297,7 +285,7 @@ interface BaseEvent {
 /** 当服务器接受并入队客户端输入时发出。 */
 interface InputEvent extends BaseEvent {
   event: "input";
-  data: PublishInputRequest;
+  data: PostSessionInputRequest;
 }
 
 /** _（仅 delta 模式）_ 在新 Agent 消息开始时发出。 */
@@ -307,13 +295,13 @@ interface MessageStartEvent {
 }
 
 /** _（仅 delta 模式）_ Agent 的增量文本。 */
-interface TextDeltaEvent {
+interface TextDeltaEvent extends BaseEvent {
   event: "text_delta";
   delta: string;
 }
 
 /** _（仅 delta 模式）_ Agent 的增量思考/推理。 */
-interface ThinkingDeltaEvent {
+interface ThinkingDeltaEvent extends BaseEvent {
   event: "thinking_delta";
   delta: string;
 }
