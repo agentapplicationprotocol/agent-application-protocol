@@ -22,7 +22,7 @@ head:
 
 # Schema
 
-以下 Schema 以 [TypeScript SDK](https://github.com/agentapplicationprotocol/typescript-sdk) 作为参考实现，使用 TypeScript 接口描述协议的数据结构。类型名称仅供参考，实现时无需与此保持一致。
+以下 Schema 以 [TypeScript SDK](https://github.com/agentapplicationprotocol/typescript-sdk) 作为参考实现。类型名称仅供参考，实现时无需与此保持一致。
 
 ## Agent
 
@@ -55,9 +55,6 @@ interface SelectAgentOption {
 /** 客户端可以在每次请求中设置的可配置选项。 */
 type AgentOption = TextAgentOption | SecretAgentOption | SelectAgentOption;
 
-/** `GET /sessions/:id/history` 的历史类型。 */
-type HistoryType = "compacted" | "full";
-
 /** 随请求提供的 Agent 配置。 */
 interface AgentConfig {
   /** 要调用的 Agent 名称。 */
@@ -70,15 +67,13 @@ interface AgentConfig {
 
 /** 声明 Agent 支持的功能。缺失字段应视为不支持。 */
 interface AgentCapabilities {
-  /** 声明 Agent 可以在 `GET /sessions/:id/history` 中返回的历史类型。 */
-  history?: Partial<Record<HistoryType, Record<string, never>>>;
+  /** 声明 Agent 是否支持通过 `GET /sessions/:id/history` 返回会话历史。子键声明支持的查询模式。 */
+  history?: {
+    /** 支持尾部分页：无游标时返回最新消息，`before` 游标向前翻页。 */
+    tail?: Record<string, never>;
+  };
   /** 声明 Agent 支持的流模式。 */
   stream?: Partial<Record<StreamMode, Record<string, never>>>;
-  /** 声明 Agent 支持的应用提供输入。 */
-  application?: {
-    /** Agent 接受请求中的客户端工具。 */
-    tools?: Record<string, never>;
-  };
   /** 声明 Agent 支持的图片输入。 */
   image?: {
     /** Agent 接受 `https://` 图片 URL。 */
@@ -87,6 +82,7 @@ interface AgentCapabilities {
     data?: Record<string, never>;
   };
 }
+
 interface AgentInfo {
   /** 此服务器上 Agent 的唯一标识符。 */
   name: string;
@@ -117,8 +113,8 @@ interface ThinkingContentBlock {
   thinking: string;
 }
 
-interface ToolUseContentBlock extends ToolCall {
-  type: "tool_use";
+interface ToolCallContentBlock extends ToolCall {
+  type: "tool_call";
 }
 
 interface ImageContentBlock {
@@ -131,7 +127,7 @@ interface ImageContentBlock {
 type ContentBlock =
   | TextContentBlock
   | ThinkingContentBlock
-  | ToolUseContentBlock
+  | ToolCallContentBlock
   | ImageContentBlock;
 ```
 
@@ -156,7 +152,7 @@ interface AssistantMessage {
   content: string | ContentBlock[];
 }
 
-/** 应用在 `tool_use` 块后返回的工具结果消息。 */
+/** 应用在 `tool_call` 块后返回的工具结果消息。 */
 interface ToolMessage extends ToolResult {
   role: "tool";
 }
@@ -166,9 +162,6 @@ type HistoryMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessa
 
 /** Agent 生成的消息。 */
 type AgentMessage = AssistantMessage | ToolMessage;
-
-/** 应用发送给 Agent 的消息。 */
-type ApplicationMessage = UserMessage | ToolMessage | ToolPermissionMessage;
 
 /** 授予或拒绝服务器代表客户端调用工具的权限。 */
 interface ToolPermissionMessage {
@@ -194,14 +187,6 @@ interface PostSessionsRequest {
   tools?: ToolSpec[];
 }
 
-/** `POST /sessions/:id/turns` 的请求体。 */
-interface PostSessionTurnRequest {
-  /** 响应模式。默认为 `"none"`。 */
-  stream?: StreamMode;
-  /** 单条用户消息，或工具结果和工具权限的混合列表。 */
-  messages: ApplicationMessage[];
-}
-
 /** `PATCH /sessions/:id` 的请求体。 */
 interface PatchSessionRequest {
   /** 会话级 Agent 更新。Agent 名称不能更改。选项按键合并。 */
@@ -209,28 +194,62 @@ interface PatchSessionRequest {
   /** 客户端工具。替换为会话声明的工具。 */
   tools?: ToolSpec[];
 }
+
+/** 发布到 `POST /sessions/:id/input` 的用户消息输入。 */
+interface UserInput {
+  type: "user";
+  /** 纯字符串或混合内容块（文本和图片）。 */
+  content: string | ContentBlock[];
+}
+
+/** 发布到 `POST /sessions/:id/input` 的工具结果输入。 */
+interface ToolInput {
+  type: "tool";
+  toolCallId: string;
+  content: string | ContentBlock[];
+}
+
+/** 发布到 `POST /sessions/:id/input` 的工具权限输入。 */
+interface PermissionInput {
+  type: "permission";
+  toolCallId: string;
+  /** 客户端是否授予工具调用权限。 */
+  granted: boolean;
+  /** 可选的人类可读说明，传递给 Agent。 */
+  reason?: string;
+}
+
+/** 发布到 `POST /sessions/:id/input` 的取消输入。 */
+interface CancelInput {
+  type: "cancel";
+}
+
+/** `POST /sessions/:id/input` 的请求体。 */
+type PublishInputRequest = UserInput | ToolInput | PermissionInput | CancelInput;
 ```
 
 ## Responses
 
 ```typescript
-/** 非流式（`stream: "none"`）请求的 JSON 响应体。 */
-interface PostSessionTurnResponse {
-  stopReason: StopReason;
-  messages: AgentMessage[];
-  /** `stopReason` 为 `"tool_use"` 时存在。 */
-  pending?: ToolCall[];
-}
-
 /** `GET /sessions/:id` 的响应体。 */
 type GetSessionResponse = SessionInfo;
 
 /** `PATCH /sessions/:id` 的响应体。 */
 type PatchSessionResponse = SessionInfo;
 
+/** 携带服务器分配的 id 和时间戳的历史消息。 */
+interface HistoryEntry {
+  id: string;
+  timestamp: string; // ISO 8601
+  role: "system" | "user" | "assistant";
+  content: string | ContentBlock[];
+}
+
 /** `GET /sessions/:id/history` 的响应体。 */
 interface GetSessionHistoryResponse {
-  history: Partial<Record<HistoryType, HistoryMessage[]>>;
+  history: HistoryEntry[];
+  /** 不透明游标；作为 `before` 传入以获取更早的消息。无更多历史时不存在。 */
+  before?: string;
 }
 
 /** `GET /sessions` 的响应体。 */
@@ -244,7 +263,7 @@ interface GetSessionsResponse {
 /** `GET /meta` 的响应体。 */
 interface GetMetaResponse {
   /** AAP 协议版本。 */
-  version: 3;
+  version: 4;
   agents: AgentInfo[];
 }
 ```
@@ -252,15 +271,12 @@ interface GetMetaResponse {
 ## Session
 
 ```typescript
-type StreamMode = "delta" | "message" | "none";
-type StopReason = "end_turn" | "tool_use" | "max_tokens" | "refusal" | "error";
+type StreamMode = "delta" | "message";
 
 /** 会话数据结构，用于 `GET /sessions/:id` 及 `GET /sessions` 中的条目。 */
 interface SessionInfo {
   sessionId: string;
-  /** 此会话当前是否有正在运行的轮次。 */
-  active: boolean;
-  /** `agent.options` 中的 secret 选项值已删减（如 `"***"`）。 */
+  /** `agent.options` 中的 secret 选项值以布尔值返回：`true` 表示已存储，`false` 表示未存储。 */
   agent: AgentConfig;
   /** 为此会话声明的客户端工具。 */
   tools?: ToolSpec[];
@@ -272,73 +288,112 @@ interface SessionInfo {
 ## SSE
 
 ```typescript
-interface TurnStartEvent {
-  event: "turn_start";
+/** 所有 SSE 事件均携带稳定的 id 和服务器时间戳。 */
+interface BaseEvent {
+  id: string;
+  timestamp: string; // ISO 8601
 }
 
+/** 当服务器接受并入队客户端输入时发出。 */
+interface InputEvent extends BaseEvent {
+  event: "input";
+  data: PublishInputRequest;
+}
+
+/** _（仅 delta 模式）_ 在新 Agent 消息开始时发出。 */
+interface MessageStartEvent {
+  event: "message_start";
+  id: string;
+}
+
+/** _（仅 delta 模式）_ Agent 的增量文本。 */
 interface TextDeltaEvent {
   event: "text_delta";
   delta: string;
 }
 
+/** _（仅 delta 模式）_ Agent 的增量思考/推理。 */
 interface ThinkingDeltaEvent {
   event: "thinking_delta";
   delta: string;
 }
 
-interface TextEvent {
+/** _（仅 delta 模式）_ 在 Agent 消息完成时发出。 */
+interface MessageEndEvent {
+  event: "message_end";
+  id: string;
+  timestamp: string; // ISO 8601 —— 消息完成时的服务器时间
+}
+
+/** _（仅 message 模式）_ 单条 Agent 消息的完整文本。 */
+interface TextEvent extends BaseEvent {
   event: "text";
   text: string;
 }
 
-interface ThinkingEvent {
+/** _（仅 message 模式）_ 单条 Agent 消息的完整思考/推理。 */
+interface ThinkingEvent extends BaseEvent {
   event: "thinking";
   thinking: string;
 }
 
-interface ToolCallEvent extends ToolCall {
+/** 当 Agent 请求工具调用时发出。 */
+interface ToolCallEvent extends BaseEvent, ToolCall {
   event: "tool_call";
 }
 
-interface ToolResultEvent extends ToolResult {
+/** 当服务端工具结果可用时发出。 */
+interface ToolResultEvent extends BaseEvent, ToolResult {
   event: "tool_result";
 }
 
-interface TurnStopEvent {
-  event: "turn_stop";
-  stopReason: StopReason;
-  /** `stopReason` 为 `"tool_use"` 时存在。 */
-  pending?: ToolCall[];
+/** 会话级运行时错误时发出。 */
+interface ErrorEvent extends BaseEvent {
+  event: "error";
+  code: string;
+  message: string;
+}
+
+/** 当会话空闲一段时间后发出。服务器在此事件后关闭连接。 */
+interface IdleEvent extends BaseEvent {
+  event: "idle";
 }
 
 /** `stream: "delta"` 和 `stream: "message"` 响应的 SSE 事件数据。 */
 type SSEEvent =
-  | TurnStartEvent
+  | InputEvent
+  | MessageStartEvent // 仅 delta 模式
   | TextDeltaEvent // 仅 delta 模式
   | ThinkingDeltaEvent // 仅 delta 模式
+  | MessageEndEvent // 仅 delta 模式
   | TextEvent // 仅 message 模式
   | ThinkingEvent // 仅 message 模式
   | ToolCallEvent
   | ToolResultEvent // 仅服务端工具
-  | TurnStopEvent;
+  | ErrorEvent
+  | IdleEvent;
 
 /** `stream: "delta"` 模式中发出的事件。 */
 type DeltaSSEEvent =
-  | TurnStartEvent
+  | InputEvent
+  | MessageStartEvent
   | TextDeltaEvent
   | ThinkingDeltaEvent
+  | MessageEndEvent
   | ToolCallEvent
   | ToolResultEvent
-  | TurnStopEvent;
+  | ErrorEvent
+  | IdleEvent;
 
 /** `stream: "message"` 模式中发出的事件。 */
 type MessageSSEEvent =
-  | TurnStartEvent
+  | InputEvent
   | TextEvent
   | ThinkingEvent
   | ToolCallEvent
   | ToolResultEvent
-  | TurnStopEvent;
+  | ErrorEvent
+  | IdleEvent;
 ```
 
 ## Tools

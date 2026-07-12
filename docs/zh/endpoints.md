@@ -11,7 +11,7 @@ head:
       content: Agent Application Protocol (AAP) HTTP 端点参考 —— 会话管理、轮次提交、历史记录和认证。
   - - meta
     - property: og:url
-      content: https://agentapplicationprotocol.com/zh/endpoints
+      content: https://agentapplicationprotocol.com/zh/endpoint
   - - meta
     - name: twitter:title
       content: 端点 — Agent Application Protocol
@@ -22,18 +22,19 @@ head:
 
 # 端点
 
-服务器可以在任意 Base URL 下托管 AAP 服务器（如 `https://api.example.com/v1`）。以下所有端点均相对于该 Base URL。
+服务器可以在任意 Base URL 下托管 AAP（如 `https://api.example.com/v1`）。以下所有端点均相对于该 Base URL。
 
-| 方法     | 路径                    | 描述                 |
-| -------- | ----------------------- | -------------------- |
-| `GET`    | `/meta`                 | 获取可用 Agent 信息  |
-| `GET`    | `/sessions`             | 列出会话             |
-| `POST`   | `/sessions`             | 创建新会话           |
-| `GET`    | `/sessions/:id`         | 按 ID 获取会话       |
-| `PATCH`  | `/sessions/:id`         | 更新会话配置         |
-| `DELETE` | `/sessions/:id`         | 删除会话             |
-| `POST`   | `/sessions/:id/turns`   | 向现有会话发送新轮次 |
-| `GET`    | `/sessions/:id/history` | 获取会话历史         |
+| 方法     | 路径                          | 描述                    |
+| -------- | ----------------------------- | ----------------------- |
+| `GET`    | `/meta`                       | 获取可用 Agent 信息     |
+| `GET`    | `/sessions`                   | 列出会话                |
+| `POST`   | `/sessions`                   | 创建新会话              |
+| `GET`    | `/sessions/:id`               | 按 ID 获取会话          |
+| `PATCH`  | `/sessions/:id`               | 更新会话配置            |
+| `DELETE` | `/sessions/:id`               | 删除会话                |
+| `POST`   | `/sessions/:id/input`         | 向会话收件箱发布输入    |
+| `GET`    | `/sessions/:id/events/stream` | 通过 SSE 订阅会话事件流 |
+| `GET`    | `/sessions/:id/history`       | 获取会话历史            |
 
 ## 认证
 
@@ -47,28 +48,28 @@ Authorization: Bearer <api-key>
 
 ## GET /meta
 
-返回协议版本和此服务器上可用的 Agent 列表。当前协议版本为 **3**。
+返回协议版本和此服务器上可用的 Agent 列表。当前协议版本为 **4**。
 
 ### 响应 `200 OK`
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "agents": [
     {
       "name": "research-agent",
       "title": "Research Agent",
       "version": "1.2.0",
-      "description": "可以搜索网络并总结信息的研究 Agent。",
+      "description": "A research agent that can search the web and summarize information.",
       "tools": [
         {
           "name": "web_search",
           "title": "Web Search",
-          "description": "搜索网络信息",
+          "description": "Search the web for information",
           "parameters": {
             "type": "object",
             "properties": {
-              "query": { "type": "string", "description": "搜索查询" }
+              "query": { "type": "string", "description": "Search query" }
             },
             "required": ["query"]
           }
@@ -77,32 +78,27 @@ Authorization: Bearer <api-key>
       "options": [
         {
           "name": "model",
-          "title": "模型",
-          "description": "此 Agent 使用的 LLM 模型。",
+          "title": "Model",
+          "description": "The LLM model to use for this agent.",
           "type": "select",
           "options": ["claude-sonnet-4-5", "claude-opus-4-5"],
           "default": "claude-sonnet-4-5"
         },
         {
           "name": "language",
-          "title": "响应语言",
-          "description": "Agent 应使用的响应语言。",
+          "title": "Response Language",
+          "description": "The language the agent should respond in.",
           "type": "text",
           "default": "English"
         }
       ],
       "capabilities": {
         "history": {
-          "compacted": {},
-          "full": {}
+          "tail": {}
         },
         "stream": {
           "delta": {},
-          "message": {},
-          "none": {}
-        },
-        "application": {
-          "tools": {}
+          "message": {}
         },
         "image": {
           "http": {},
@@ -116,7 +112,7 @@ Authorization: Bearer <api-key>
 
 **响应字段：**
 
-- `version` —— 此服务器实现的 AAP 协议版本。当前协议版本为 `3`。
+- `version` —— 此服务器实现的 AAP 协议版本。当前协议版本为 `4`。
 
 **Agent 字段：**
 
@@ -127,22 +123,20 @@ Authorization: Bearer <api-key>
 - `tools` —— Agent 选择暴露给客户端配置的服务端工具（启用、禁用或授予信任）。Agent 也可能有未暴露的工具，这些工具内联运行无需客户端参与，因此这是 Agent 实际工具的子集。当 `tool_call` 或 `tool_result` 事件引用未知工具名称时，客户端应优雅处理。
 - `options` —— 客户端可以在每次请求中设置的可配置选项。
 - `capabilities` —— _（可选）_ 声明 Agent 支持的能力。可以省略各个能力字段，客户端应将缺失字段视为不支持。
-  - `history` —— 声明 Agent 可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回的历史类型：
-    - `history.compacted` —— 若存在，服务器可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回压缩历史。
-    - `history.full` —— 若存在，服务器可以在 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 中返回完整未压缩历史。
-  - `stream` —— 声明 Agent 支持的流模式。若省略，客户端应假设只支持 `"none"`。
-    - `stream.delta` —— 若存在，Agent 支持 `"delta"` 流式传输。
-    - `stream.message` —— 若存在，Agent 支持 `"message"` 流式传输。
-    - `stream.none` —— 若存在，Agent 支持非流式（`"none"`）响应。
-  - `application` —— 声明 Agent 支持的应用提供输入：
-    - `application.tools` —— 若存在，Agent 接受请求中的客户端工具。
+  - `history` —— 若存在，Agent 支持通过 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 检索历史。子键声明支持的查询模式。
+    - `history.tail` —— 若存在，Agent 支持尾部分页：无游标时返回最新消息，`before` 游标向前翻页获取更早的消息。
+  - `stream` —— 声明 Agent 支持的流模式。若不存在，客户端必须将该 Agent 视为不支持任何流模式，对 `GET /sessions/:id/events/stream` 的任何 `stream` 参数均返回 `400 Bad Request`。
+    - `stream.delta` —— 若存在，Agent 支持以增量 `text_delta` 和 `thinking_delta` 事件流式传输文本。
+    - `stream.message` —— 若存在，Agent 支持传送完整的 `text` 和 `thinking` 事件。
   - `image` —— 声明 Agent 支持的图片输入：
     - `image.http` —— 若存在，Agent 接受 `https://` 图片 URL。
     - `image.data` —— 若存在，Agent 接受 `data:` URI（base64）图片。
 
+**客户端工具**是协议的核心部分。所有 Agent 必须接受客户端工具。此处没有能力标志 —— 这不是可选的。
+
 **选项字段：**
 
-- `name` —— `options` 标识符。
+- `name` —— 在请求 `options` 对象中用作键的标识符。
 - `title` —— _（可选）_ 人类可读的显示名称。
 - `description` —— _（可选）_ 解释此选项的作用。
 - `type` —— `"text"` 用于自由格式字符串输入，`"select"` 用于固定选项列表，`"secret"` 用于敏感值（如 API 密钥），应在 UI 中遮蔽；服务器可以将 secret 值持久化到安全存储（如 AWS Secrets Manager）。
@@ -166,7 +160,6 @@ Authorization: Bearer <api-key>
   "sessions": [
     {
       "sessionId": "sess_abc123",
-      "active": false,
       "agent": {
         "name": "research-agent",
         "tools": [{ "name": "web_search", "trust": true }],
@@ -178,7 +171,7 @@ Authorization: Bearer <api-key>
       "tools": [
         {
           "name": "get_weather",
-          "description": "获取某地点的当前天气",
+          "description": "Get current weather for a location",
           "parameters": {
             "type": "object",
             "properties": {
@@ -202,7 +195,7 @@ Authorization: Bearer <api-key>
 
 ## POST /sessions
 
-创建新会话。不运行 Agent —— 使用 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 发送第一条消息以运行 Agent。
+创建新会话。Agent 工作进程何时启动属于服务器实现细节。
 
 ### 请求体
 
@@ -217,14 +210,14 @@ Authorization: Bearer <api-key>
     }
   },
   "messages": [
-    { "role": "system", "content": "你是一个有帮助的助手。" },
-    { "role": "user", "content": "法国的首都是哪里？" },
-    { "role": "assistant", "content": "法国的首都是巴黎。" }
+    { "role": "system", "content": "You are a helpful assistant." },
+    { "role": "user", "content": "What's the capital of France?" },
+    { "role": "assistant", "content": "The capital of France is Paris." }
   ],
   "tools": [
     {
       "name": "get_weather",
-      "description": "获取某地点的当前天气",
+      "description": "Get current weather for a location",
       "parameters": {
         "type": "object",
         "properties": {
@@ -240,10 +233,10 @@ Authorization: Bearer <api-key>
 **字段：**
 
 - `agent` —— _（必填）_ Agent 配置。
-  - `agent.name` —— 要调用的 Agent 名称。
+  - `agent.name` —— 要调用的 Agent 名称，如 `GET /meta` 中声明的。
   - `agent.tools` —— _（可选）_ 要启用的服务端工具。若省略，所有暴露的服务端工具均禁用。
   - `agent.options` —— _（可选）_ 与 Agent 声明的 `options` 匹配的键值对。若省略，所有选项使用默认值。单独省略的选项也回退到默认值。
-- `messages` —— _（可选）_ 用于初始化会话的历史（如系统提示或先前对话）。
+- `messages` —— _（可选）_ 用于初始化会话的消息，如系统提示或要恢复的先前对话。
 - `tools` —— _（可选）_ 带完整 schema 的客户端工具。
 
 **`agent.tools` 对象字段：**
@@ -253,38 +246,47 @@ Authorization: Bearer <api-key>
 
 ### 响应 `201 Created`
 
-服务器必须包含指向已创建会话资源的 `Location` 响应头。响应体为空。
+`Location` 头包含已创建会话的绝对 URL。响应体为空。
 
 ```http
-Location: /sessions/sess_abc123
+201 Created
+Location: https://agent-1.example.com/sessions/sess_abc123
 ```
 
-### 重试行为
+客户端必须使用 `Location` 中返回的 URL 作为该会话所有后续请求的基础 —— 包括 `/input`、`/events/stream` 和 `/history`。在分布式部署中，会话可能托管在与创建它时不同的源上。
 
-此端点不定义幂等键。若客户端在创建会话后丢失响应，应通过 [`GET /sessions`](/zh/endpoints#get-sessions) 列出已知会话来恢复，然后继续使用匹配的会话，或删除废弃会话。
+此端点不定义幂等键。创建会话只分配一个轻量级记录，重试是安全的。若客户端丢失了响应，可以通过 [`GET /sessions`](/zh/endpoints#get-sessions) 列出已有会话并继续使用匹配的会话，或创建新会话来恢复。
+
+### 响应 `400 Bad Request`
+
+当请求体校验失败时返回，例如未知的 Agent 工具名称、选项值与声明类型不符，或 `messages`、`tools` 格式有误。
+
+### 响应 `404 Not Found`
+
+当 `agent.name` 指定的 Agent 名称在此服务器上不存在时返回。
 
 ## GET /sessions/:id
 
-返回给定会话 ID 的会话对象。
+返回会话的当前配置和待处理的工具调用。主要用途是重连 —— 客户端调用此端点在断线后处理待处理的工具调用。
 
 ### 响应 `200 OK`
 
 ```json
 {
   "sessionId": "sess_abc123",
-  "active": false,
   "agent": {
     "name": "research-agent",
     "tools": [{ "name": "web_search", "trust": true }],
     "options": {
       "model": "claude-opus-4-5",
-      "language": "Japanese"
+      "language": "Japanese",
+      "apiKey": true
     }
   },
   "tools": [
     {
       "name": "get_weather",
-      "description": "获取某地点的当前天气",
+      "description": "Get current weather for a location",
       "parameters": {
         "type": "object",
         "properties": {
@@ -301,10 +303,9 @@ Location: /sessions/sess_abc123
 **字段：**
 
 - `sessionId` —— 会话标识符。
-- `active` —— 此会话当前是否有正在运行的轮次。为 `true` 时，[`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 和 [`POST /sessions/:id/turns`](/zh/endpoints#post-sessions-id-turns) 返回 `409 Conflict`。
-- `agent` —— 此会话的 Agent 配置。`"secret"` 类型的 `agent.options` 不得以明文返回；服务器应返回不透明占位符（如 `"***"`）。
+- `agent` —— 此会话的 Agent 配置，如创建时设置或通过 `PATCH /sessions/:id` 最后更新的。`"secret"` 类型的选项以布尔值返回 —— 若已存储值则为 `true`，否则为 `false` —— 绝不能以明文返回。
 - `tools` —— 为此会话声明的客户端工具。
-- `pending` —— 等待客户端操作的工具调用。工具名称在客户端工具和服务端工具之间唯一，因此客户端可以将工具名称与已配置工具匹配，判断每个调用需要提交 `tool` 结果还是 `tool_permission`。
+- `pending` —— 等待客户端操作的工具调用。客户端可以通过将工具名称与已配置工具匹配，判断每个调用需要 `tool_result` 还是 `tool_permission`。
 
 ### 响应 `404 Not Found`
 
@@ -312,7 +313,7 @@ Location: /sessions/sess_abc123
 
 ## PATCH /sessions/:id
 
-更新持久化的会话配置。使用此端点在轮次之外更改服务端工具设置、Agent 选项或客户端工具。会话创建后不能更改 Agent `name`。
+更新持久化的会话配置。使用此端点替换客户端工具或更新 Agent 选项。会话创建后不能更改 Agent `name`。
 
 ### 请求体
 
@@ -327,7 +328,7 @@ Location: /sessions/sess_abc123
   "tools": [
     {
       "name": "get_weather",
-      "description": "获取某地点的当前天气",
+      "description": "Get current weather for a location",
       "parameters": {
         "type": "object",
         "properties": {
@@ -343,21 +344,21 @@ Location: /sessions/sess_abc123
 **字段：**
 
 - `agent` —— _（可选）_ 会话级 Agent 更新。
-  - `agent.tools` —— _（可选）_ 服务端工具。替换会话的服务端工具设置。
-  - `agent.options` —— _（可选）_ 键值选项更新。选项按键合并：只更新提供的键，省略的键保持不变。要取消设置某选项，发送其默认值。
-- `tools` —— _（可选）_ 客户端工具。替换为会话声明的客户端工具。
+  - `agent.tools` —— _（可选）_ 服务端工具设置。完全替换会话的服务端工具设置。
+  - `agent.options` —— _（可选）_ 键值选项更新。按键合并：只更新提供的键，省略的键保持不变。服务器用提供的值覆盖存储值。客户端必须省略不打算更改的 secret 字段。
+- `tools` —— _（可选）_ 客户端工具。替换为会话声明的完整客户端工具集。
 
 ### 响应 `200 OK`
 
 返回更新后的会话对象，形状与 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 相同。
 
+### 响应 `400 Bad Request`
+
+当请求体校验失败时返回，例如未知的 Agent 工具名称，或选项值与声明类型不符。
+
 ### 响应 `404 Not Found`
 
 当会话不存在时返回。
-
-### 响应 `409 Conflict`
-
-当会话存在活跃轮次时返回。请先完成当前轮次，再更新会话配置。
 
 ## DELETE /sessions/:id
 
@@ -371,74 +372,77 @@ Location: /sessions/sess_abc123
 
 当会话不存在时返回。
 
-## POST /sessions/:id/turns
+## POST /sessions/:id/input
 
-向现有会话发送新用户轮次或工具调用结果。服务器将消息追加到历史，运行 Agent，并流式传输或返回响应。
-
-### 请求体
-
-```json
-{
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "大阪呢？" }]
-}
-```
-
-**字段：**
-
-- `stream` —— _（可选）_ 响应模式。见[响应](/zh/response)。
-- `messages` —— _（必填）_ 要追加的新轮次。通常是单条 `user` 消息，但在 `tool_use` 停止后重新提交时也可以是工具结果或工具权限。
+所有客户端发起的输入都通过此端点。完整的输入类型及其结构请参阅[输入](/zh/inputs)。
 
 ### 响应 `200 OK`
 
-响应体格式见[响应](/zh/response)。
+响应体为空。
 
 ### 响应 `400 Bad Request`
 
-当提交的轮次无效时返回。若会话存在等待处理的工具调用，请求必须为每个等待处理的工具调用包含且仅包含一个结果或权限决定；缺失、未知或重复的工具调用 ID 均无效。
+当 `toolCallId` 引用的工具调用不存在或已被解析时返回。
 
 ### 响应 `404 Not Found`
 
 当会话不存在时返回。
 
-### 响应 `409 Conflict`
+## GET /sessions/:id/events/stream
 
-当会话已有活跃轮次时返回。
+返回 `Content-Type: text/event-stream`。多个订阅者可以同时连接到同一会话。查询参数、事件类型、重连行为和空闲关闭详见[事件流](/zh/events)。
 
-### 重试行为
+### 响应 `404 Not Found`
 
-此端点不定义幂等键。若请求失败或连接中断，客户端应调用 [`GET /sessions/:id`](/zh/endpoints#get-sessions-id) 检查 `active` 和 `pending`，并可调用 [`GET /sessions/:id/history`](/zh/endpoints#get-sessions-id-history) 恢复展示或执行状态。
+当会话不存在时返回。
 
 ## GET /sessions/:id/history
 
-返回给定会话的对话历史。仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用。
+返回给定会话的持久化对话历史。仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 能力中声明了 `history` 时可用。
+
+客户端使用此端点在断线后恢复会话上下文，或逐页浏览更早的对话历史。历史以逆序返回 —— 最新消息在前。
 
 ### 查询参数
 
-- `type` —— _（必填）_ 要返回的历史类型。接受值：`compacted`、`full`。
-- `start` —— _（可选）_ 从零开始的起始索引，包含该索引。负数从所选历史末尾倒数。
-- `end` —— _（可选）_ 从零开始的结束索引，不包含该索引。负数从所选历史末尾倒数。
-
-若省略 `start`，默认为 `0`。若省略 `end`，默认为所选历史长度。服务器应将超出范围的值限制到可用历史范围内。例如，`start=-50` 返回最后 50 条消息。范围应用于压缩后的所选历史表示，因此 `type=compacted&start=-20` 返回压缩历史中的最后 20 条消息。
+- `before` —— _（可选）_ 上一响应返回的不透明游标。返回早于该游标的消息。省略则获取最新消息。
 
 ### 响应 `200 OK`
 
 ```json
 {
-  "history": {
-    "compacted": [...]
-  }
+  "history": [
+    {
+      "id": "msg_abc125",
+      "timestamp": "2026-07-12T13:00:05Z",
+      "role": "assistant",
+      "content": "Let me check that for you."
+    },
+    {
+      "id": "evt_001",
+      "timestamp": "2026-07-12T13:00:00Z",
+      "role": "user",
+      "content": "What's the weather in Tokyo?"
+    },
+    {
+      "id": "msg_abc124",
+      "timestamp": "2026-07-12T12:59:50Z",
+      "role": "system",
+      "content": "You are a helpful assistant."
+    }
+  ],
+  "before": "dXNlcjoxMjM0NTY3ODk"
 }
 ```
 
 **字段：**
 
-- `history` —— 对话历史。根据请求的 `type` 包含 `history.compacted` 或 `history.full`。
-
-### 响应 `400 Bad Request`
-
-当 `start` 或 `end` 不是整数，或归一化后的范围无效时返回。
+- `history` —— 逆序消息数组（最新消息在前）。
+  - `id` —— 消息的稳定标识符，用于合并本地与远端历史时的去重。
+  - `timestamp` —— 消息记录时的服务器 ISO 8601 时间戳。
+  - `role` —— `"system"`、`"user"` 或 `"assistant"`。
+  - `content` —— 消息内容。
+- `before` —— _（可选）_ 不透明游标；作为 `before` 传入以获取更早的消息。无更多历史时不存在。
 
 ### 响应 `404 Not Found`
 
-当会话不存在，或请求的历史 `type` 不被 Agent 支持（即未在 `capabilities.history` 中声明）时返回。
+当会话不存在，或 Agent 不支持历史检索时返回。

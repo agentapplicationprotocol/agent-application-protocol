@@ -54,19 +54,19 @@ sequenceDiagram
     App->>User: Show agent list
     User->>App: Pick agent, configure options, enable tools
     App->>Agent: POST /sessions with options and tools
-    Agent-->>App: Location: /sessions/:id
-    loop Turns
-        User->>App: Input prompt
-        App->>Agent: POST /sessions/:id/turns
-        Agent-->>App: Streamed response
+    Agent-->>App: Location: https://agent-1.example.com/sessions/:id
+    App->>Agent: GET /sessions/:id/events/stream
+    Note over App,Agent: SSE connection open
+    User->>App: Input prompt
+    App->>Agent: POST /sessions/:id/input (type: user)
+    Agent-->>App: Streamed events (text_delta, tool_call, …)
+    App->>User: Display response
+    alt Client-side tool calls or untrusted server-side tools
+        App->>User: Prompt for permission / show tool inputs
+        User-->>App: Allow or deny
+        App->>Agent: POST /sessions/:id/input (type: tool or permission)
+        Agent-->>App: Streamed events continue
         App->>User: Display response
-        alt Unresolved tool calls (e.g. run command, CRUD files)
-            App->>User: Prompt for permission / show tool inputs
-            User-->>App: Allow or deny
-            App->>Agent: POST /sessions/:id/turns (results + permissions)
-            Agent-->>App: Streamed response
-            App->>User: Display response
-        end
     end
 ```
 
@@ -130,43 +130,81 @@ Response:
 
 ```http
 HTTP/1.1 201 Created
-Location: /sessions/sess_abc123
+Location: https://agent-1.example.com/sessions/sess_abc123
 ```
 
-Extract and store the session ID from the `Location` header — you'll use it for every turn.
+The `Location` header contains the absolute URL of the created session. Extract and store it — you must use this URL as the base for all subsequent requests on this session, including `/input`, `/events/stream`, and `/history`. In a distributed deployment, the session may be hosted on a different origin than where you sent the `POST /sessions` request.
 
 Client-side tools declared here are persisted for the session.
 
-## Step 5: Send turns and handle responses
+## Step 5: Subscribe to the event stream and send messages
 
-Send each user message to the session. To change agent options, server tool configs, or client-side tools, update the session first with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id); turn requests only append messages.
+Before sending user input, subscribe to the session event stream:
 
 ```http
-POST /sessions/sess_abc123/turns
+GET /sessions/sess_abc123/events/stream?stream=delta
+Authorization: Bearer <api-key>
+```
+
+This opens a persistent SSE connection. The server will replay any events not yet persisted into history, then stream new events as they occur. Keep this connection open for the lifetime of the session — it delivers all agent output including text, tool calls, and state changes.
+
+Once subscribed, send the user's message to the session inbox:
+
+```http
+POST /sessions/sess_abc123/input
 Authorization: Bearer <api-key>
 Content-Type: application/json
 
 {
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "Summarize the latest AI news." }]
+  "type": "user",
+  "content": "Summarize the latest AI news."
 }
 ```
 
-Stream the response back to the user. See [Response Modes](/response) for how to handle `delta`, `message`, and `none` stream types.
+The server enqueues the input, emits an `input` event to all subscribers, and delivers it to the active session worker. Agent output arrives over the SSE stream you already have open.
 
-## Step 6: Handle the next turn
+To change agent options, server tool configs, or client-side tools, update the session with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
 
-After receiving a response, the AAP SDK parses it and extracts any unresolved tool calls — client-side tools your app must execute, and untrusted server-side tools awaiting permission.
+## Step 6: Handle tool calls
 
-**If there are unresolved tool calls**, prompt the user for each one:
+While the agent is running, it may emit `tool_call` events over the SSE stream for client-side tools your app must execute, or for untrusted server-side tools that require user permission.
+
+For each `tool_call` event:
 
 - Show the tool name and description.
 - Use the tool's input schema to display each parameter name, its value, and description so the user understands what will run.
-- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
+- Ask the user to allow or deny.
 
-Once the user responds to all prompts, gather every tool result and permission into a single turn request and submit it.
+Submit each result or permission individually as it is resolved — do not wait to batch them:
 
-**If there are no unresolved tool calls**, the turn is complete — ask the user for their next message and go back to Step 5.
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
+
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "Tokyo: 18°C, partly cloudy"
+}
+```
+
+For a permission decision:
+
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
+
+{
+  "type": "permission",
+  "toolCallId": "call_002",
+  "granted": false,
+  "reason": "User denied file system access."
+}
+```
+
+The agent receives each result as it arrives and continues processing. To auto-allow a server-side tool in future turns, update the session's tool settings with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
 
 See [Tool Calls](/tool-call) for the full resolving flow.
 
@@ -203,10 +241,8 @@ Returns `204 No Content` on success.
 **Get session history** — retrieve the conversation history for a session (only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta)):
 
 ```http
-GET /sessions/sess_abc123/history?type=compacted
+GET /sessions/sess_abc123/history
 Authorization: Bearer <api-key>
 ```
-
-`type` is either `compacted` or `full`, depending on what the agent supports via `capabilities.history`.
 
 See [Endpoints](/endpoints) for full request and response details.

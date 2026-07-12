@@ -35,7 +35,8 @@ head:
 | UI 与用户输入    | ✅                 |                    |           |
 | 客户端工具       | ✅                 |                    |           |
 | 会话创建         | ✅ → 经由服务器    | ✅ 代理            |           |
-| 轮次请求         | ✅ → 经由服务器    | ✅ 代理 + 流式传输 |           |
+| 事件流订阅       | ✅ → 经由服务器    | ✅ 代理 + 流式传输 |           |
+| 输入发布         | ✅ → 经由服务器    | ✅ 代理            |           |
 | 请求/响应过滤    |                    | ✅                 |           |
 | Agent 循环 & LLM |                    |                    | ✅        |
 | 服务端工具       |                    |                    | ✅        |
@@ -53,21 +54,26 @@ sequenceDiagram
     User->>App: 开始会话
     App->>Server: 请求会话
     Server->>Agent: POST /sessions（AAP 密钥、Agent 选项、工具配置）
-    Agent-->>Server: Location: /sessions/:id
+    Agent-->>Server: Location: https://agent.example.com/sessions/:id
     Server-->>App: sessionId
-    loop 轮次
-        User->>App: 输入提示词
-        App->>Server: POST /sessions/:id/turns（你的认证）
-        Server->>Agent: POST /sessions/:id/turns（AAP 密钥）
-        Agent-->>Server: 流式响应
-        Server-->>App: 代理流
-        alt 未解决的工具调用（如执行命令、文件 CRUD）
+
+    App->>Server: 订阅事件
+    Server->>Agent: GET /sessions/:id/events/stream（AAP 密钥）
+    Agent-->>Server: SSE 流
+    Server-->>App: 代理 SSE 流
+
+    loop 对话
+        User->>App: 输入消息
+        App->>Server: POST /sessions/:id/input（你的认证）
+        Server->>Agent: POST /sessions/:id/input（AAP 密钥）
+
+        alt 流上收到工具调用
+            Agent-->>Server: tool_call 事件
+            Server-->>App: 代理 tool_call 事件
             App->>User: 提示授权 / 显示工具输入
             User-->>App: 允许或拒绝
-            App->>Server: POST /sessions/:id/turns（结果 + 权限）
-            Server->>Agent: POST /sessions/:id/turns（AAP 密钥）
-            Agent-->>Server: 流式响应
-            Server-->>App: 代理流
+            App->>Server: POST /sessions/:id/input（工具结果或授权）
+            Server->>Agent: POST /sessions/:id/input（AAP 密钥）
         end
     end
 ```
@@ -89,34 +95,60 @@ sequenceDiagram
 
 ## 第三步：通过你的服务器创建会话
 
-客户端请求你的服务器创建会话。你的服务器使用长期有效的 AAP API 密钥调用 AAP Agent 的 [`POST /sessions`](/zh/endpoints#post-sessions)，携带预配置的 Agent 选项和工具配置。AAP Agent 在 `Location` 中返回会话 URL；你的服务器可以提取会话 ID，并只将该 ID 返回给客户端。AAP 密钥永远不离开你的服务器。
+客户端请求你的服务器创建会话。你的服务器使用长期有效的 AAP API 密钥调用 AAP Agent 的 [`POST /sessions`](/zh/endpoints#post-sessions)，携带预配置的 Agent 选项和工具配置。AAP Agent 在 `Location` 响应头中以绝对 URL 返回会话 URL —— 例如 `https://agent.example.com/sessions/sess_abc123`。你的服务器提取会话 ID，并只将该 ID 返回给客户端。AAP 密钥永远不离开你的服务器。
 
-## 第四步：通过你的服务器发送轮次
+## 第四步：通过你的服务器订阅事件流并代理输入
 
-客户端将轮次发送到你的服务器（使用你自己的认证），你的服务器将其代理到 AAP Agent 并将响应流式传回：
+会话创建后，你的服务器向 AAP Agent 的事件流建立长期代理连接并将其管道传输给客户端：
 
 ```
-客户端 → POST /your-server/sessions/:id/turns
-       → 你的服务器 → POST /aap-agent/sessions/:id/turns
-                     ← 流式响应
-       ← 代理流
+客户端 → GET /your-server/sessions/:id/events/stream
+       → 你的服务器 → GET /aap-agent/sessions/:id/events/stream（AAP 密钥）
+                     ← SSE 流
+       ← 代理 SSE 流
 ```
 
-你的服务器可以在此层检查或过滤请求和响应。
+用户消息和工具结果通过你的服务器以短 HTTP 请求提交：
+
+```
+客户端 → POST /your-server/sessions/:id/input
+       → 你的服务器 → POST /aap-agent/sessions/:id/input（AAP 密钥）
+```
+
+你的服务器可以在此层检查或过滤事件流和输入请求。
 
 ## 第五步：处理工具调用
 
-每次响应后，AAP SDK 提取所有未解决的工具调用 —— 需执行的客户端工具和等待授权的不受信任服务端工具。
+当客户端在流上收到 `tool_call` 事件时，判断该工具是客户端工具还是不受信任的服务端工具。
 
-**若存在未解决的工具调用**，对每个工具调用提示用户：
+**对于客户端工具**，对每个工具提示用户：
 
 - 显示工具名称和描述。
 - 使用工具的输入 schema 展示每个参数名称、值和描述。
-- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的服务端工具设置。
+- 询问用户允许或拒绝。
 
-将所有结果和权限汇总到单个轮次请求中，通过你的服务器代理提交。
+执行被允许的工具，并通过你的服务器代理逐个提交结果：
 
-**若没有未解决的工具调用**，询问用户下一条消息并返回第四步。
+```json
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "Tokyo: 18°C, partly cloudy"
+}
+```
+
+被拒绝的工具以授权拒绝形式提交：
+
+```json
+{
+  "type": "permission",
+  "toolCallId": "call_002",
+  "granted": false,
+  "reason": "User denied file system access."
+}
+```
+
+每个结果或授权决定作为单独的 `POST /sessions/:id/input` 请求提交 —— 不要批量合并。若要在未来轮次中自动允许某个服务端工具，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的服务端工具设置。
 
 完整解决流程见[工具调用](/zh/tool-call)。
 

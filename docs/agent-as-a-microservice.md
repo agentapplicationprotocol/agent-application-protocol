@@ -47,14 +47,15 @@ sequenceDiagram
 
     Service->>Agent: POST /sessions (agent options, tool configs, client-side tools)
     Agent-->>Service: Location: /sessions/:id
+    Service->>Agent: GET /sessions/:id/events/stream
     loop Requests
         User->>Service: Input prompt
-        Service->>Agent: POST /sessions/:id/turns (user prompt)
-        Agent-->>Service: Streamed response
+        Service->>Agent: POST /sessions/:id/input (type: user)
+        Agent-->>Service: Streamed events (text_delta, tool_call, …)
         alt Tool calls
             Note over Service: Execute tools programmatically
-            Service->>Agent: POST /sessions/:id/turns (tool results)
-            Agent-->>Service: Streamed response
+            Service->>Agent: POST /sessions/:id/input (type: tool, one per result)
+            Agent-->>Service: Streamed events continue
         end
         Service-->>User: Response
     end
@@ -101,30 +102,47 @@ Content-Type: application/json
 }
 ```
 
-## Step 3: Send turns
+## Step 3: Subscribe to the event stream and send input
 
-Send a user prompt to the session:
+Subscribe to the event stream before sending input:
 
 ```http
-POST /sessions/sess_abc123/turns
+GET /sessions/sess_abc123/events/stream?stream=delta
+Authorization: Bearer <api-key>
+```
+
+Then send the user prompt:
+
+```http
+POST /sessions/sess_abc123/input
 Authorization: Bearer <api-key>
 Content-Type: application/json
 
 {
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "What is the parental leave policy?" }]
+  "type": "user",
+  "content": "What is the parental leave policy?"
 }
 ```
 
+Agent output arrives over the SSE stream as `text_delta`, `tool_call`, and other events.
+
 ## Step 4: Handle tool calls programmatically
 
-After each response, the AAP SDK extracts any unresolved tool calls. Unlike user-facing apps, your service executes all tools immediately without prompting anyone:
+When the agent emits a `tool_call` event, execute the tool immediately in your service — no permission prompts needed. Submit each result individually:
 
-1. For each `tool_call`, execute the tool in your service.
-2. Gather all results into a single turn request and submit it.
-3. Repeat until there are no unresolved tool calls.
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
 
-For server-side tools, set `trust: true` so the agent runs them inline without stopping.
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "Parental leave policy: 16 weeks fully paid..."
+}
+```
+
+Submit each result as soon as it is ready — do not batch them. The agent processes results as they arrive and continues. For server-side tools, set `trust: true` so the agent runs them inline without stopping.
 
 See [Tool Calls](/tool-call) for the full resolving flow.
 

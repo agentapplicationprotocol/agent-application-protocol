@@ -35,7 +35,8 @@ Client-side tools in a managed app often operate in the user's environment — r
 | UI & user input            | ✅                |                      |           |
 | Client-side tools          | ✅                |                      |           |
 | Session creation           | ✅ → via server   | ✅ proxies           |           |
-| Turn requests              | ✅ → via server   | ✅ proxies + streams |           |
+| Event stream subscription  | ✅ → via server   | ✅ proxies + streams |           |
+| Input publishing           | ✅ → via server   | ✅ proxies           |           |
 | Request/response filtering |                   | ✅                   |           |
 | Agent loop & LLM           |                   |                      | ✅        |
 | Server-side tools          |                   |                      | ✅        |
@@ -53,21 +54,26 @@ sequenceDiagram
     User->>App: Start session
     App->>Server: Request session
     Server->>Agent: POST /sessions (AAP key, agent options, tool configs)
-    Agent-->>Server: Location: /sessions/:id
+    Agent-->>Server: Location: https://agent.example.com/sessions/:id
     Server-->>App: sessionId
-    loop Turns
-        User->>App: Input prompt
-        App->>Server: POST /sessions/:id/turns (your auth)
-        Server->>Agent: POST /sessions/:id/turns (AAP key)
-        Agent-->>Server: Streamed response
-        Server-->>App: Proxied stream
-        alt Unresolved tool calls (e.g. run command, CRUD files)
+
+    App->>Server: Subscribe to events
+    Server->>Agent: GET /sessions/:id/events/stream (AAP key)
+    Agent-->>Server: SSE stream
+    Server-->>App: Proxied SSE stream
+
+    loop Conversation
+        User->>App: Input message
+        App->>Server: POST /sessions/:id/input (your auth)
+        Server->>Agent: POST /sessions/:id/input (AAP key)
+
+        alt Tool call received on stream
+            Agent-->>Server: tool_call event
+            Server-->>App: Proxied tool_call event
             App->>User: Prompt for permission / show tool inputs
             User-->>App: Allow or deny
-            App->>Server: POST /sessions/:id/turns (results + permissions)
-            Server->>Agent: POST /sessions/:id/turns (AAP key)
-            Agent-->>Server: Streamed response
-            Server-->>App: Proxied stream
+            App->>Server: POST /sessions/:id/input (tool result or permission)
+            Server->>Agent: POST /sessions/:id/input (AAP key)
         end
     end
 ```
@@ -89,34 +95,60 @@ When the user opens your app, authenticate them against your own server using yo
 
 ## Step 3: Create a session via your server
 
-The client asks your server to create a session. Your server calls [`POST /sessions`](/endpoints#post-sessions) on the AAP agent using your long-lived AAP API key, with your preconfigured agent options and tool configs. The AAP agent returns the session URL in `Location`; your server can extract the session ID and return only that ID to the client. The AAP key never leaves your server.
+The client asks your server to create a session. Your server calls [`POST /sessions`](/endpoints#post-sessions) on the AAP agent using your long-lived AAP API key, with your preconfigured agent options and tool configs. The AAP agent returns the session URL as an absolute URL in the `Location` header — for example `https://agent.example.com/sessions/sess_abc123`. Your server extracts the session ID and returns only that ID to the client. The AAP key never leaves your server.
 
-## Step 4: Send turns via your server
+## Step 4: Subscribe to the event stream and proxy input via your server
 
-The client sends turns to your server (using your own auth), and your server proxies them to the AAP agent and streams the response back:
+Once the session is created, your server opens a long-lived proxy to the AAP agent's event stream and pipes it to the client:
 
 ```
-Client → POST /your-server/sessions/:id/turns
-       → Your server → POST /aap-agent/sessions/:id/turns
-                     ← Streamed response
-       ← Proxied stream
+Client → GET /your-server/sessions/:id/events/stream
+       → Your server → GET /aap-agent/sessions/:id/events/stream (AAP key)
+                     ← SSE stream
+       ← Proxied SSE stream
 ```
 
-Your server can inspect or filter requests and responses at this layer.
+User messages and tool results are submitted as short HTTP requests through your server:
+
+```
+Client → POST /your-server/sessions/:id/input
+       → Your server → POST /aap-agent/sessions/:id/input (AAP key)
+```
+
+Your server can inspect or filter both the event stream and input requests at this layer.
 
 ## Step 5: Handle tool calls
 
-After each response, the AAP SDK extracts any unresolved tool calls — client-side tools to execute and untrusted server-side tools awaiting permission.
+When the client receives a `tool_call` event on the stream, check whether the tool is a client-side tool or an untrusted server-side tool.
 
-**If there are unresolved tool calls**, prompt the user for each one:
+**For client-side tools**, prompt the user for each one:
 
 - Show the tool name and description.
 - Use the tool's input schema to display each parameter name, value, and description.
-- Ask the user to allow or deny. To auto-allow in future turns, update the session's server-side tool settings with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
+- Ask the user to allow or deny.
 
-Gather all results and permissions into a single turn request and submit it via your server proxy.
+Execute allowed tools and submit each result individually via your server proxy:
 
-**If there are no unresolved tool calls**, ask the user for their next message and go back to Step 4.
+```json
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "Tokyo: 18°C, partly cloudy"
+}
+```
+
+Submit denied tools as a permission rejection:
+
+```json
+{
+  "type": "permission",
+  "toolCallId": "call_002",
+  "granted": false,
+  "reason": "User denied file system access."
+}
+```
+
+Each result or permission is submitted as a separate `POST /sessions/:id/input` request — do not batch them. To auto-allow a server-side tool in future turns, update the session's server-side tool settings with [`PATCH /sessions/:id`](/endpoints#patch-sessions-id).
 
 See [Tool Calls](/tool-call) for the full resolving flow.
 

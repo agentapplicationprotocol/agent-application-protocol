@@ -62,14 +62,21 @@ graph LR
     end
 ```
 
+Sessions are live resources. After creating a session, the client subscribes to the session's SSE event stream and publishes input through a session inbox. Publishing and subscribing are kept separate:
+
+- **Subscribe**: a long-lived SSE stream at `GET /sessions/:id/events/stream` delivers all agent output — text, tool calls, and state changes.
+- **Publish**: short HTTP requests to `POST /sessions/:id/input` deliver user messages, tool results, tool permissions, and cancellation to an ordered session inbox. The server assigns the authoritative sequence.
+
+All input goes through the same inbox regardless of type. The client can publish new input while the session is active, and can reconnect to the event stream at any time without losing live state.
+
 There are two kinds of tools:
 
-- **Client-side tools**: owned and executed by the Application. Declared in the request with full schema. When the LLM requests, the agent emits `tool_call` events and stops; the application executes them and re-submits with the results.
-- **Server-side tools**: owned and executed by the Agent (e.g. persistent memory management, web search, code execution). Declared by the server in [`GET /meta`](/endpoints#get-meta). The application references them by name only in requests. If `trust: true`, the server invokes the tool inline and streams the result back without stopping.
+- **Client-side tools**: owned and executed by the Application. Declared in the session with full schema. When the LLM requests one, the agent emits a `tool_call` event; the application executes the tool and submits the result via `POST /sessions/:id/input` with `type: "tool"`.
+- **Server-side tools**: owned and executed by the Agent (e.g. persistent memory management, web search, code execution). Declared by the server in [`GET /meta`](/endpoints#get-meta). The application references them by name only when creating the session. If `trust: true`, the server invokes the tool inline and streams the result back without waiting for the client.
 
 Both sides can extend their capabilities via MCP servers — the application wires in domain tools, the agent wires in general-purpose tools like web search or code execution.
 
-Communication uses HTTP with Server-Sent Events (SSE) for streaming responses. This makes servers stateless and horizontally scalable — session history can be stored externally with no persistent server connection required.
+Communication uses HTTP with Server-Sent Events (SSE) for streaming output. Publishing is always a short HTTP request; subscribing is always a long-lived SSE stream. This design makes servers horizontally scalable — session history can be stored externally with no persistent server connection required.
 
 ## Why AAP
 

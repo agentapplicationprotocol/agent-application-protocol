@@ -8,20 +8,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Added range-based history retrieval with `start` and `end` query parameters for `GET /sessions/:id/history`.
-- Added `PATCH /sessions/:id` for persisted session configuration updates.
-- Added `active` and `pending` session state fields, with pending tool calls returned from session and turn responses.
+- Added `message_start` and `message_end` SSE events for delta mode, carrying message `id` and server-side finish `timestamp`.
+- Added `id` and `timestamp` fields to all SSE events (`input`, `text`, `thinking`, `tool_call`, `tool_result`, `error`, `idle`) for stateless client tracking and deduplication.
+- Added `id` and `timestamp` fields to history messages returned from `GET /sessions/:id/history`.
+- Added `history.tail` sub-key to the `history` capability, declaring support for tail-based cursor pagination. Clients should check `history.tail` before calling `GET /sessions/:id/history`.
+- Added `User Input` page (`/inputs`) documenting all input types (`user`, `tool`, `permission`, `cancel`) extracted from the endpoints reference.
+- Added `Event Stream` page (`/events`) with full event type reference and sequence diagram, extracted from the endpoints reference.
+- Added `400 Bad Request` and `404 Not Found` responses to `POST /sessions` for validation failures and unknown agent name.
+- Added `400 Bad Request` to `PATCH /sessions/:id` for validation failures.
+- Added `400 Bad Request` to `POST /sessions/:id/input` for unknown or already-resolved tool call IDs.
+- Added multiple-subscriber guidance to tool call documentation: clients must dismiss pending tool permission UI when another subscriber resolves the same tool call.
 
 ### Changed
 
-- Changed `GET /sessions` pagination to make page size server-selected and cursor-only.
-- Refined session conflict semantics so `409 Conflict` applies to active turns, not pending tool calls.
-- Removed per-turn configuration overrides from turn submission; persisted configuration changes now use `PATCH /sessions/:id`.
-- Changed tool-call recovery to use `GET /sessions/:id` and resolve pending tool calls from session state.
+- Changed `GET /sessions/:id/history` pagination from index-based (`start`/`end`) to cursor-based (`before`). No cursor returns the most recent messages; pass `before` to page backward. History is returned in reverse chronological order.
+- Changed secret option values in session responses from the literal string `"[redacted]"` to a boolean (`true` if stored, `false` if not).
+- Changed `ToolUseContentBlock` type discriminant from `"tool_use"` to `"tool_call"` for naming consistency.
+- Renamed `response.md` to `events.md` and `endpoints.md` sidebar label updated to "Endpoints".
+- Updated `history` capability schema from opaque `{}` to `{ tail?: {} }` to support future query mode extensibility.
+- Simplified `POST /sessions` retry behavior note, folding it into the `201 Created` response section.
+- Removed hardcoded `message` field from error response examples; `message` is now documented as optional and implementation-defined.
+- Updated `GET /sessions/:id/history` response shape to include `before` cursor and per-message `id` and `timestamp`.
 
 ### Removed
 
-- Removed response bodies from `POST /sessions`; clients now recover the created session from the required `Location` header.
+- Removed `Event Types` section from `endpoints.md`; superseded by the dedicated `events.md` page.
+- Removed `Get Session History` section from `history.md`; HTTP reference now lives exclusively in `endpoints.md`.
+- Removed index-based `start` and `end` query parameters from `GET /sessions/:id/history`.
 
 ## [v3] - 2026-04-04
 

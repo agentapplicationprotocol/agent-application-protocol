@@ -11,7 +11,7 @@ head:
       content: Agent Application Protocol (AAP) HTTP endpoints reference — session management, turn submission, history, and authentication.
   - - meta
     - property: og:url
-      content: https://agentapplicationprotocol.com/endpoints
+      content: https://agentapplicationprotocol.com/endpoint
   - - meta
     - name: twitter:title
       content: Endpoints — Agent Application Protocol
@@ -24,16 +24,17 @@ head:
 
 Servers may host AAP under any base URL (e.g. `https://api.example.com/v1`). All endpoints below are relative to that base URL.
 
-| Method   | Path                    | Description                            |
-| -------- | ----------------------- | -------------------------------------- |
-| `GET`    | `/meta`                 | Get available agents info              |
-| `GET`    | `/sessions`             | List sessions                          |
-| `POST`   | `/sessions`             | Create a new session                   |
-| `GET`    | `/sessions/:id`         | Get a session by ID                    |
-| `PATCH`  | `/sessions/:id`         | Update session configuration           |
-| `DELETE` | `/sessions/:id`         | Delete a session                       |
-| `POST`   | `/sessions/:id/turns`   | Send a new turn to an existing session |
-| `GET`    | `/sessions/:id/history` | Get session history                    |
+| Method   | Path                          | Description                                    |
+| -------- | ----------------------------- | ---------------------------------------------- |
+| `GET`    | `/meta`                       | Get available agents info                      |
+| `GET`    | `/sessions`                   | List sessions                                  |
+| `POST`   | `/sessions`                   | Create a new session                           |
+| `GET`    | `/sessions/:id`               | Get a session by ID                            |
+| `PATCH`  | `/sessions/:id`               | Update session configuration                   |
+| `DELETE` | `/sessions/:id`               | Delete a session                               |
+| `POST`   | `/sessions/:id/input`         | Publish input to the session inbox             |
+| `GET`    | `/sessions/:id/events/stream` | Subscribe to the session event stream over SSE |
+| `GET`    | `/sessions/:id/history`       | Get session history                            |
 
 ## Authentication
 
@@ -47,13 +48,13 @@ Auth is optional on [`GET /meta`](/endpoints#get-meta) — servers may choose to
 
 ## GET /meta
 
-Returns the protocol version and the list of agents available on this server. The current protocol version is **3**.
+Returns the protocol version and the list of agents available on this server. The current protocol version is **4**.
 
 ### Response `200 OK`
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "agents": [
     {
       "name": "research-agent",
@@ -93,16 +94,11 @@ Returns the protocol version and the list of agents available on this server. Th
       ],
       "capabilities": {
         "history": {
-          "compacted": {},
-          "full": {}
+          "tail": {}
         },
         "stream": {
           "delta": {},
-          "message": {},
-          "none": {}
-        },
-        "application": {
-          "tools": {}
+          "message": {}
         },
         "image": {
           "http": {},
@@ -116,7 +112,7 @@ Returns the protocol version and the list of agents available on this server. Th
 
 **Response fields:**
 
-- `version` — the AAP protocol version implemented by this server. The current protocol version is `3`.
+- `version` — the AAP protocol version implemented by this server. The current protocol version is `4`.
 
 **Agent fields:**
 
@@ -127,18 +123,16 @@ Returns the protocol version and the list of agents available on this server. Th
 - `tools` — server-side tools the agent chooses to expose to the client for configuration (enabling, disabling, or granting trust). Agents may also have unexposed tools that run inline without client involvement, so this is a subset of the agent's actual tools. When a `tool_call` or `tool_result` event references an unknown tool name, clients should handle it gracefully.
 - `options` — configurable options the client may set per request.
 - `capabilities` — _(optional)_ declares what the agent supports. Individual capability fields may be omitted; clients should treat missing fields as unsupported.
-  - `history` — declares what history the agent can return in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history):
-    - `history.compacted` — if present, the server can return compacted history in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history).
-    - `history.full` — if present, the server can return full uncompacted history in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history).
-  - `stream` — declares which stream modes the agent supports. If omitted, clients should assume only `"none"` is supported.
-    - `stream.delta` — if present, the agent supports `"delta"` streaming.
-    - `stream.message` — if present, the agent supports `"message"` streaming.
-    - `stream.none` — if present, the agent supports non-streaming (`"none"`) responses.
-  - `application` — declares what application-provided inputs the agent supports:
-    - `application.tools` — if present, the agent accepts client-side tools in requests.
+  - `history` — if present, the agent supports history retrieval via [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history). The sub-keys declare which query modes are supported.
+    - `history.tail` — if present, the agent supports tail-based paging: no cursor returns the most recent messages, and the `before` cursor pages backward through older messages.
+  - `stream` — declares which stream modes the agent supports. If absent, the client must treat the agent as supporting no streaming modes and any `stream` parameter on `GET /sessions/:id/events/stream` returns `400 Bad Request`.
+    - `stream.delta` — if present, the agent supports streaming text as incremental `text_delta` and `thinking_delta` events.
+    - `stream.message` — if present, the agent supports delivering complete `text` and `thinking` events.
   - `image` — declares what image input the agent supports:
     - `image.http` — if present, the agent accepts `https://` image URLs.
     - `image.data` — if present, the agent accepts `data:` URI (base64) images.
+
+**Client-side tools** are a core part of the protocol. All agents must accept client-side tools. There is no capability flag for this — it is not optional.
 
 **Option fields:**
 
@@ -166,7 +160,6 @@ Servers choose the page size. Clients should follow `next` cursors until `next` 
   "sessions": [
     {
       "sessionId": "sess_abc123",
-      "active": false,
       "agent": {
         "name": "research-agent",
         "tools": [{ "name": "web_search", "trust": true }],
@@ -202,7 +195,7 @@ Servers choose the page size. Clients should follow `next` cursors until `next` 
 
 ## POST /sessions
 
-Creates a new session. Does not run the agent — use [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) to send the first message.
+Creates a new session. When the agent worker starts is an implementation detail left to the server.
 
 ### Request Body
 
@@ -240,10 +233,10 @@ Creates a new session. Does not run the agent — use [`POST /sessions/:id/turns
 **Fields:**
 
 - `agent` — _(required)_ agent configuration.
-  - `agent.name` — agent name to invoke.
+  - `agent.name` — agent name to invoke, as declared in `GET /meta`.
   - `agent.tools` — _(optional)_ server-side tools to enable. If omitted, all exposed server-side tools are disabled.
   - `agent.options` — _(optional)_ key-value pairs matching the agent's declared `options`. If omitted, all options use their default values. Individual omitted options also fall back to their default values.
-- `messages` — _(optional)_ history to seed the session with (e.g. a system prompt or prior conversation).
+- `messages` — _(optional)_ messages to seed the session with, such as a system prompt or a prior conversation to resume from.
 - `tools` — _(optional)_ client-side tools with full schema.
 
 **`agent.tools` object fields:**
@@ -253,32 +246,41 @@ Creates a new session. Does not run the agent — use [`POST /sessions/:id/turns
 
 ### Response `201 Created`
 
-Servers must include a `Location` header pointing to the created session resource. The response body is empty.
+The `Location` header contains the absolute URL of the created session. The response body is empty.
 
 ```http
-Location: /sessions/sess_abc123
+201 Created
+Location: https://agent-1.example.com/sessions/sess_abc123
 ```
 
-### Retry Behavior
+The client must use the URL returned in `Location` as the base for all subsequent requests on this session — including `/input`, `/events/stream`, and `/history`. In a distributed deployment, the session may be hosted on a different origin than the one used to create it.
 
-This endpoint does not define an idempotency key. If a client loses the response after creating a session, it should recover by listing known sessions with [`GET /sessions`](/endpoints#get-sessions), then continue with the matching session or delete abandoned sessions.
+This endpoint does not define an idempotency key. Creating a session only allocates a lightweight record and is safe to retry. If a client loses the response, it can recover by listing existing sessions with [`GET /sessions`](/endpoints#get-sessions) and continuing with the matching session, or by creating a new one.
+
+### Response `400 Bad Request`
+
+Returned when the request body fails validation, such as an unknown agent tool name, an option value that does not match the declared type, or malformed `messages` or `tools`.
+
+### Response `404 Not Found`
+
+Returned when the agent name specified in `agent.name` does not exist on this server.
 
 ## GET /sessions/:id
 
-Returns the session object for the given session ID.
+Returns the current configuration and pending tool calls for a session. The primary use case is reconnection — clients call this endpoint to reconcile pending tool calls after a disconnect.
 
 ### Response `200 OK`
 
 ```json
 {
   "sessionId": "sess_abc123",
-  "active": false,
   "agent": {
     "name": "research-agent",
     "tools": [{ "name": "web_search", "trust": true }],
     "options": {
       "model": "claude-opus-4-5",
-      "language": "Japanese"
+      "language": "Japanese",
+      "apiKey": true
     }
   },
   "tools": [
@@ -301,10 +303,9 @@ Returns the session object for the given session ID.
 **Fields:**
 
 - `sessionId` — the session identifier.
-- `active` — whether a turn is currently running for this session. When `true`, [`PATCH /sessions/:id`](/endpoints#patch-sessions-id) and [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns) return `409 Conflict`.
-- `agent` — the agent configuration for this session. `agent.options` of type `"secret"` must not be returned as plaintext; servers should return an opaque placeholder (e.g. `"***"`) instead.
+- `agent` — the agent configuration for this session, as set at creation or last updated via `PATCH /sessions/:id`. Options of type `"secret"` are returned as a boolean — `true` if a value is stored, `false` if not — and must never be returned as plaintext.
 - `tools` — client-side tools declared for this session.
-- `pending` — tool calls waiting for client action. Tool names are unique across client-side and server-side tools, so clients can determine whether each call requires a `tool` result or a `tool_permission` by matching the tool name against the configured tools.
+- `pending` — tool calls waiting for client action. Clients can determine whether each call requires a `tool_result` or a `tool_permission` by matching the tool name against the configured tools.
 
 ### Response `404 Not Found`
 
@@ -312,7 +313,7 @@ Returned when the session does not exist.
 
 ## PATCH /sessions/:id
 
-Updates persisted session configuration. Use this endpoint to change server-side tool settings, agent options, or client-side tools outside of a turn. Agent `name` cannot be changed after session creation.
+Updates persisted session configuration. Use this endpoint to replace client-side tools or update agent options. Agent `name` cannot be changed after session creation.
 
 ### Request Body
 
@@ -343,21 +344,21 @@ Updates persisted session configuration. Use this endpoint to change server-side
 **Fields:**
 
 - `agent` — _(optional)_ session-level agent updates.
-  - `agent.tools` — _(optional)_ server-side tools. Replaces the session's server-side tool settings.
-  - `agent.options` — _(optional)_ key-value option updates. Options are merged by key: only provided keys are updated, omitted keys remain unchanged. To unset an option, send its default value.
-- `tools` — _(optional)_ client-side tools. Replaces the client-side tools declared for the session.
+  - `agent.tools` — _(optional)_ server-side tool settings. Replaces the session's server-side tool settings entirely.
+  - `agent.options` — _(optional)_ key-value option updates. Merged by key: only provided keys are updated, omitted keys remain unchanged. The server overwrites the stored value with whatever is provided. Clients must omit secret fields they do not intend to change.
+- `tools` — _(optional)_ client-side tools. Replaces the full set of client-side tools declared for the session.
 
 ### Response `200 OK`
 
 Returns the updated session object, with the same shape as [`GET /sessions/:id`](/endpoints#get-sessions-id).
 
+### Response `400 Bad Request`
+
+Returned when the request body fails validation, such as an unknown agent tool name, or an option value that does not match the declared type.
+
 ### Response `404 Not Found`
 
 Returned when the session does not exist.
-
-### Response `409 Conflict`
-
-Returned when the session has an active turn. Finish the current turn before updating session configuration.
 
 ## DELETE /sessions/:id
 
@@ -371,74 +372,77 @@ Returned on successful deletion.
 
 Returned when the session does not exist.
 
-## POST /sessions/:id/turns
+## POST /sessions/:id/input
 
-Send a new user turn or tool calling results to an existing session. The server appends the message to its history, runs the agent, and streams or returns the response.
-
-### Request Body
-
-```json
-{
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "What about Osaka?" }]
-}
-```
-
-**Fields:**
-
-- `stream` — _(optional)_ response mode. See [Response](/response).
-- `messages` — _(required)_ the new turn(s) to append. Typically a single `user` message, but may also be tool results or tool permissions when re-submitting after a `tool_use` stop.
+All client-originated input goes through this endpoint. See [Input](/inputs) for the full list of input types and their schemas.
 
 ### Response `200 OK`
 
-See [Response](/response) for the response body shape.
+Empty body.
 
 ### Response `400 Bad Request`
 
-Returned when the submitted turn is invalid. If the session has pending tool calls, the request must include exactly one result or permission for each pending tool call; missing, unknown, or duplicate tool call IDs are invalid.
+Returned when the tool call referenced by `toolCallId` does not exist or has already been resolved.
 
 ### Response `404 Not Found`
 
 Returned when the session does not exist.
 
-### Response `409 Conflict`
+## GET /sessions/:id/events/stream
 
-Returned when the session already has an active turn.
+Returns `Content-Type: text/event-stream`. Multiple subscribers can connect to the same session simultaneously. See [Event Stream](/events) for query parameters, event types, reconnection behavior, and idle close.
 
-### Retry Behavior
+### Response `404 Not Found`
 
-This endpoint does not define an idempotency key. If a request fails or the connection drops, the client should recover by calling [`GET /sessions/:id`](/endpoints#get-sessions-id) to inspect `active` and `pending`, and may call [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) to restore display or execution state.
+Returned when the session does not exist.
 
 ## GET /sessions/:id/history
 
-Returns the conversation history for the given session. Only available if the agent declared history capabilities in [`GET /meta`](/endpoints#get-meta).
+Returns the persisted conversation history for the given session. Only available if the agent declared `history` in [`GET /meta`](/endpoints#get-meta) capabilities.
+
+Clients use this endpoint to restore session context after a disconnect, or to page through earlier conversation history. History is returned in reverse chronological order — most recent messages first.
 
 ### Query Parameters
 
-- `type` — _(required)_ which history to return. Accepted values: `compacted`, `full`.
-- `start` — _(optional)_ zero-based start index, inclusive. Negative values count back from the end of the selected history.
-- `end` — _(optional)_ zero-based end index, exclusive. Negative values count back from the end of the selected history.
-
-If `start` is omitted, it defaults to `0`. If `end` is omitted, it defaults to the selected history length. Servers should clamp out-of-range values to the available history. For example, `start=-50` returns the last 50 messages. Ranges apply to the selected history representation after any compaction, so `type=compacted&start=-20` returns the last 20 messages from the compacted history.
+- `before` — _(optional)_ opaque cursor returned by a previous response. Returns messages older than the cursor. Omit to retrieve the most recent messages.
 
 ### Response `200 OK`
 
 ```json
 {
-  "history": {
-    "compacted": [...]
-  }
+  "history": [
+    {
+      "id": "msg_abc125",
+      "timestamp": "2026-07-12T13:00:05Z",
+      "role": "assistant",
+      "content": "Let me check that for you."
+    },
+    {
+      "id": "evt_001",
+      "timestamp": "2026-07-12T13:00:00Z",
+      "role": "user",
+      "content": "What's the weather in Tokyo?"
+    },
+    {
+      "id": "msg_abc124",
+      "timestamp": "2026-07-12T12:59:50Z",
+      "role": "system",
+      "content": "You are a helpful assistant."
+    }
+  ],
+  "before": "dXNlcjoxMjM0NTY3ODk"
 }
 ```
 
 **Fields:**
 
-- `history` — conversation history. Contains either `history.compacted` or `history.full` depending on the requested `type`.
-
-### Response `400 Bad Request`
-
-Returned when `start` or `end` is not an integer, or when the normalized range is invalid.
+- `history` — array of messages in reverse chronological order (most recent first).
+  - `id` — stable identifier for the message, useful for deduplication when merging local and remote history.
+  - `timestamp` — ISO 8601 server timestamp of when the message was recorded.
+  - `role` — `"system"`, `"user"`, or `"assistant"`.
+  - `content` — message content.
+- `before` — _(optional)_ opaque cursor; pass as `before` to retrieve older messages. Absent when there is no more history.
 
 ### Response `404 Not Found`
 
-Returned when the session does not exist, or when the requested history `type` is not supported by the agent (i.e. not declared in `capabilities.history`).
+Returned when the session does not exist, or when the agent does not support history retrieval.

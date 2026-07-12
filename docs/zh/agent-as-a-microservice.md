@@ -47,14 +47,15 @@ sequenceDiagram
 
     Service->>Agent: POST /sessions（Agent 选项、工具配置、客户端工具）
     Agent-->>Service: Location: /sessions/:id
+    Service->>Agent: GET /sessions/:id/events/stream
     loop 请求
         User->>Service: 输入提示词
-        Service->>Agent: POST /sessions/:id/turns（用户提示词）
-        Agent-->>Service: 流式响应
+        Service->>Agent: POST /sessions/:id/input（type: user）
+        Agent-->>Service: 流式事件（text_delta、tool_call……）
         alt 工具调用
             Note over Service: 自动执行工具
-            Service->>Agent: POST /sessions/:id/turns（工具结果）
-            Agent-->>Service: 流式响应
+            Service->>Agent: POST /sessions/:id/input（type: tool，每个结果单独提交）
+            Agent-->>Service: 流式事件继续
         end
         Service-->>User: 响应
     end
@@ -101,30 +102,47 @@ Content-Type: application/json
 }
 ```
 
-## 第三步：发送轮次
+## 第三步：订阅事件流并发送输入
 
-向会话发送用户提示词：
+发送输入前，先订阅事件流：
 
 ```http
-POST /sessions/sess_abc123/turns
+GET /sessions/sess_abc123/events/stream?stream=delta
+Authorization: Bearer <api-key>
+```
+
+然后发送用户提示词：
+
+```http
+POST /sessions/sess_abc123/input
 Authorization: Bearer <api-key>
 Content-Type: application/json
 
 {
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "育儿假政策是什么？" }]
+  "type": "user",
+  "content": "育儿假政策是什么？"
 }
 ```
 
+Agent 输出通过 SSE 流以 `text_delta`、`tool_call` 等事件形式到达。
+
 ## 第四步：自动处理工具调用
 
-Agent 每次响应后，后端服务使用 AAP SDK 提取所有客户端工具调用。与面向用户的应用不同，后端服务立即执行所有工具，无需提示用户：
+当 Agent 发出 `tool_call` 事件时，立即在后端服务中执行该工具 —— 无需权限提示。每个结果单独提交：
 
-1. 对于每个 `tool_call`，在后端服务中执行该工具。
-2. 将所有结果汇总到单个轮次请求中提交。
-3. 重复，直到没有未解决的工具调用。
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
 
-对于服务端工具，设置 `trust: true` 让 Agent 内联运行它们而不停止。
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "育儿假政策：全薪 16 周……"
+}
+```
+
+结果就绪后立即提交，不要批量合并。Agent 收到结果后继续处理。对于服务端工具，设置 `trust: true` 让 Agent 内联运行它们而不停止。
 
 完整的工具调用解析流程，见[工具调用](/zh/tool-call)。
 

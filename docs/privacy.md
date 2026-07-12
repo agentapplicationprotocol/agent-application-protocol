@@ -30,8 +30,9 @@ AAP is designed to let agent providers keep their implementation details confide
 - **Context engineering** — how the agent constructs, orders, or transforms the prompt sent to the LLM is not exposed to the client.
 - **Persistent memory** — the existence, structure, and retrieval strategy of any long-term memory store is opaque to the application.
 - **Private state** — agents may persist additional state (e.g. user profiles, preferences, internal context) that is never exchanged with the application.
-- **Compacted history and compaction strategy** — agents may omit or redact `compacted` history from [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) responses to protect proprietary summarization or truncation logic.
-- **Guardrail implementation** — safety and policy enforcement logic is opaque to the client; violations surface only as a `refusal` stop reason.
+- **Compacted history and compaction strategy** — agents may omit, redact, or summarize messages returned from [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) to protect proprietary summarization or truncation logic. The protocol only guarantees the returned history is sufficient for reconnection recovery.
+- **Guardrail implementation** — safety and policy enforcement logic is opaque to the client; violations surface only as agent-level error or refusal responses.
+- **Secret option values** — options of type `"secret"` are never returned as plaintext. The session response indicates only whether a value is stored.
 - **Model routing** — which underlying LLM or model version is used for a given request is not required to be disclosed.
 - **Server-side tool results** — agents may redact or summarize tool results in `tool_result` events and returned messages, keeping sensitive data server-side.
 

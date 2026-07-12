@@ -24,7 +24,7 @@ head:
 
 开放的 Agent 应用允许用户接入自定义的 AAP Agent —— 用户配置服务器 URL 和 API 密钥，您的应用连接到用户选择的任意 Agent。无供应商锁定，无需后端。
 
-这与 [AAP Web Playground](https://agentapplicationprotocol.github.io/playground/)的模式相同。
+这与 [AAP Web Playground](https://agentapplicationprotocol.github.io/playground/) 的模式相同。
 
 开放应用中的客户端工具通常直接在用户环境中运行 —— 读写文件、执行 shell 命令、查询本地数据。由于这些操作可能涉及敏感内容，应用在执行前应提示用户授权。
 
@@ -54,23 +54,23 @@ sequenceDiagram
     App->>User: 显示 Agent 列表
     User->>App: 选择 Agent，配置选项，启用工具
     App->>Agent: POST /sessions（含选项和工具）
-    Agent-->>App: Location: /sessions/:id
-    loop 轮次
-        User->>App: 输入提示词
-        App->>Agent: POST /sessions/:id/turns
-        Agent-->>App: 流式响应
+    Agent-->>App: Location: https://agent-1.example.com/sessions/:id
+    App->>Agent: GET /sessions/:id/events/stream
+    Note over App,Agent: SSE 连接已建立
+    User->>App: 输入提示词
+    App->>Agent: POST /sessions/:id/input (type: user)
+    Agent-->>App: 流式事件（text_delta、tool_call……）
+    App->>User: 显示响应
+    alt 客户端工具调用或不受信任的服务端工具
+        App->>User: 提示授权 / 显示工具输入
+        User-->>App: 允许或拒绝
+        App->>Agent: POST /sessions/:id/input (type: tool 或 permission)
+        Agent-->>App: 继续流式事件
         App->>User: 显示响应
-        alt 未解决的工具调用（如执行命令、文件 CRUD）
-            App->>User: 提示授权 / 显示工具输入
-            User-->>App: 允许或拒绝
-            App->>Agent: POST /sessions/:id/turns（结果 + 权限）
-            Agent-->>App: 流式响应
-            App->>User: 显示响应
-        end
     end
 ```
 
-## 第一步：用户提供AAP Agent配置
+## 第一步：收集连接设置
 
 显示包含两个字段的设置表单：
 
@@ -86,7 +86,7 @@ GET /meta
 Authorization: Bearer <api-key>
 ```
 
-响应包含每个 Agent 的名称、描述、可配置选项、工具和能力。完整响应 schema 见 [端点](/zh/endpoints#get-meta)。
+响应包含每个 Agent 的名称、描述、可配置选项、工具和能力。完整响应 schema 见[端点](/zh/endpoints#get-meta)。
 
 使用 `capabilities` 过滤出支持你应用所需功能的 Agent（如流式传输、图片输入、客户端工具）。
 
@@ -114,12 +114,12 @@ Content-Type: application/json
   "agent": {
     "name": "research-agent",
     "tools": [{ "name": "web_search", "trust": true }],
-    "options": { "language": "Chinese" }
+    "options": { "language": "English" }
   },
   "tools": [
     {
       "name": "get_current_document",
-      "description": "返回编辑器中当前打开文档的内容。",
+      "description": "Returns the content of the document currently open in the editor.",
       "parameters": { "type": "object", "properties": {} }
     }
   ]
@@ -130,43 +130,81 @@ Content-Type: application/json
 
 ```http
 HTTP/1.1 201 Created
-Location: /sessions/sess_abc123
+Location: https://agent-1.example.com/sessions/sess_abc123
 ```
 
-从 `Location` 响应头中提取并保存会话 ID —— 每次轮次都会用到它。
+`Location` 响应头包含已创建会话的绝对 URL。提取并保存它 —— 该会话上的所有后续请求（包括 `/input`、`/events/stream` 和 `/history`）都必须使用此 URL 作为基址。在分布式部署中，会话可能托管在与 `POST /sessions` 请求所发往的服务不同的源上。
 
 此处声明的客户端工具在会话期间持久保存。
 
-## 第五步：发送轮次并处理响应
+## 第五步：订阅事件流并发送消息
 
-将每条用户消息发送到会话。若要更改 Agent 选项、服务端工具配置或客户端工具，请先使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话；轮次请求只追加消息。
+在发送用户输入之前，先订阅会话事件流：
 
 ```http
-POST /sessions/sess_abc123/turns
+GET /sessions/sess_abc123/events/stream?stream=delta
+Authorization: Bearer <api-key>
+```
+
+这将建立一个持久的 SSE 连接。服务器会先回放尚未持久化到历史的所有事件，然后在新事件发生时实时推送。在会话的整个生命周期内保持此连接 —— 它会传递所有 Agent 输出，包括文本、工具调用和状态变更。
+
+订阅后，将用户消息发送到会话收件箱：
+
+```http
+POST /sessions/sess_abc123/input
 Authorization: Bearer <api-key>
 Content-Type: application/json
 
 {
-  "stream": "delta",
-  "messages": [{ "role": "user", "content": "总结最新的 AI 新闻。" }]
+  "type": "user",
+  "content": "Summarize the latest AI news."
 }
 ```
 
-将响应流式传输给用户。关于如何处理 `delta`、`message` 和 `none` 流类型，见[响应模式](/zh/response)。
+服务器将输入入队，向所有订阅者发出 `input` 事件，并将其交付给活跃的会话工作器。Agent 输出通过你已打开的 SSE 流到达。
 
-## 第六步：处理下一轮次
+若要更改 Agent 选项、服务端工具配置或客户端工具，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话。
 
-收到响应后，AAP SDK 解析并提取所有未解决的工具调用 —— 应用需执行的客户端工具，以及等待授权的不受信任服务端工具。
+## 第六步：处理工具调用
 
-**若存在未解决的工具调用**，对每个工具调用提示用户：
+Agent 运行时，可能会通过 SSE 流发出 `tool_call` 事件，用于需要你应用执行的客户端工具，或需要用户授权的不受信任服务端工具。
+
+对于每个 `tool_call` 事件：
 
 - 显示工具名称和描述。
 - 使用工具的输入 schema 展示每个参数名称、值和描述，让用户了解将要执行的内容。
-- 询问用户允许或拒绝。若要在未来轮次中自动允许，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的服务端工具设置。
+- 询问用户允许或拒绝。
 
-用户响应所有提示后，将所有工具结果和权限汇总到单个轮次请求中提交。
+每个结果或授权决定在解决后立即单独提交 —— 不要等待批量提交：
 
-**若没有未解决的工具调用**，本轮次完成 —— 询问用户下一条消息并返回第五步。
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
+
+{
+  "type": "tool",
+  "toolCallId": "call_001",
+  "content": "Tokyo: 18°C, partly cloudy"
+}
+```
+
+对于授权决定：
+
+```http
+POST /sessions/sess_abc123/input
+Authorization: Bearer <api-key>
+Content-Type: application/json
+
+{
+  "type": "permission",
+  "toolCallId": "call_002",
+  "granted": false,
+  "reason": "User denied file system access."
+}
+```
+
+Agent 在收到每个结果后继续处理。若要在未来轮次中自动允许某个服务端工具，请使用 [`PATCH /sessions/:id`](/zh/endpoints#patch-sessions-id) 更新会话的工具设置。
 
 完整工具调用解析流程见[工具调用](/zh/tool-call)。
 
@@ -203,10 +241,8 @@ Authorization: Bearer <api-key>
 **获取会话历史** —— 获取会话的对话历史（仅当 Agent 在 [`GET /meta`](/zh/endpoints#get-meta) 中声明了历史能力时可用）：
 
 ```http
-GET /sessions/sess_abc123/history?type=compacted
+GET /sessions/sess_abc123/history
 Authorization: Bearer <api-key>
 ```
-
-`type` 为 `compacted` 或 `full`，取决于 Agent 通过 `capabilities.history` 支持的类型。
 
 完整请求和响应详情见[端点](/zh/endpoints)。

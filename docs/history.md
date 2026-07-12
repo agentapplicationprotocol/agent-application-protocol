@@ -20,26 +20,47 @@ head:
       content: How Agent Application Protocol (AAP) manages conversation history — server-side compaction, client-side persistence, and history capabilities.
 ---
 
-# History Management
+# Session History
 
-## Server History
+## Purpose
 
-The server owns the conversation history for each session. The client never re-sends prior messages — it only sends new turns via [`POST /sessions/:id/turns`](/endpoints#post-sessions-id-turns).
+Session history is the durable record of a completed conversation. Its primary role in the protocol is **reconnection recovery**: when a client disconnects and reconnects, it can call `GET /sessions/:id/history` to restore earlier conversational context that is no longer present in the live event stream.
 
-The server must persist at minimum a **compacted history**: a representation of the conversation sufficient for the LLM to continue coherently. The compaction strategy is agent-specific — the server may summarize, truncate, or drop content (e.g. old tool results) as it sees fit. The client is never notified of compaction. Agents may choose not to expose compacted history in [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) to protect proprietary compaction logic, or may return a redacted version suitable for client display only.
+History is a complement to the live event stream, not a replacement for it. On reconnect, the server replays all events not yet persisted into history via `GET /sessions/:id/events/stream`. The client uses history only when it needs earlier context that has already been folded into durable storage.
 
-The server may additionally persist the **full uncompacted history** for use cases such as audit trails, history replay, or user-facing conversation display. This is optional and implementation-defined. If provided, the full history must be exact and unredacted — unlike compacted history, no content may be omitted or altered.
+## Server Responsibility
 
-Each agent declares its history persistence capabilities in [`GET /meta`](/endpoints#get-meta) via `capabilities.history`. History is retrieved via [`GET /sessions/:id/history`](/endpoints#get-sessions-id-history) and must be a `Message[]`-compatible array. The returned history may contain unresolved tool calls (i.e. tool calls without a matching tool result). For recovery, clients should use `active` and `pending` from [`GET /sessions/:id`](/endpoints#get-sessions-id) when available; see [tool call resumption](/tool-call#tool-call-resumption).
+The server owns session history. How the server stores, compacts, summarizes, or retains session records is an implementation detail — the protocol does not prescribe it. A server may store history in S3, a database, or any other durable store, and may compact or summarize content as needed to keep it tractable for the LLM.
 
-## Client History
+The protocol only guarantees that what `GET /sessions/:id/history` returns is sufficient for the client to restore conversational context after a disconnect.
 
-The client may independently persist the full conversation history on its own side for display purposes. This is entirely client-managed and is never sent back to the server.
+## History Capability
 
-## History Consistency
+An agent declares history support via the `history` key in `capabilities` from `GET /meta`:
 
-Client and server histories may be inconsistent with each other — this is intentional by design. Neither side sends its own history to the other.
+```json
+{
+  "capabilities": {
+    "history": {
+      "tail": {}
+    }
+  }
+}
+```
 
-- Client history is for display purposes only.
-- Server full history is for audit and record-keeping.
-- Server compacted history is what the agent feeds to the LLM for inference. Note that even the compacted history returned by the server may not exactly reflect what was sent to the LLM.
+If `history` is absent from `capabilities`, the agent does not support history retrieval. Clients must not call `GET /sessions/:id/history` for such agents.
+
+Sub-keys declare which query modes are supported. If `history.tail` is present, the agent supports tail-based paging: no cursor returns the most recent messages, and the `before` cursor pages backward through older messages. How the server stores, compacts, or retains session records is an implementation detail.
+
+## Audit Trails
+
+Audit trails, full uncompacted message logs, and other record-keeping requirements are outside the scope of this protocol. Servers and clients that need audit capabilities should define additional endpoints or mechanisms outside of AAP.
+
+## Recovery Flow
+
+On reconnect, a client restores session context by combining two sources:
+
+1. **Live event replay** — `GET /sessions/:id/events/stream` replays all events not yet persisted into history. This covers the active, in-progress portion of the session.
+2. **Durable history** — `GET /sessions/:id/history` provides the persisted record of completed work. Call this when earlier context is needed that is no longer present in the live stream.
+
+For pending tool calls after a disconnect, use `GET /sessions/:id` to retrieve the `pending` list and resume from there. See [tool call resumption](/tool-call#tool-call-resumption).
